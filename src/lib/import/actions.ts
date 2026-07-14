@@ -64,6 +64,7 @@ export interface PerfilExistenteResumo {
   colunaCredito: string | null;
   colunaDebito: string | null;
   colunaParcela: string | null;
+  colunaCartao: string | null;
 }
 
 export interface AnalisarArquivoResultado {
@@ -108,6 +109,7 @@ export async function analisarArquivo(formData: FormData): Promise<AnalisarArqui
         colunaCredito: perfilRow.coluna_credito,
         colunaDebito: perfilRow.coluna_debito,
         colunaParcela: perfilRow.coluna_parcela,
+        colunaCartao: perfilRow.coluna_cartao,
       }
     : null;
 
@@ -145,12 +147,16 @@ export async function analisarArquivo(formData: FormData): Promise<AnalisarArqui
   };
 }
 
+/** Linhas de pagamento da fatura (ex.: "PAGAMENTO PIX") não são gasto — nunca viram lançamento bruto. */
+const PADRAO_PAGAMENTO_FATURA = /^pagamento\b/i;
+
 export interface ProcessarImportacaoResultado {
   documentoId: string;
   loteId: string;
   totalLinhas: number;
   linhasValidas: number;
   linhasInvalidas: number;
+  pagamentosIgnorados: number;
   duplicatasSinalizadas: number;
   totalExtraido: number;
 }
@@ -170,6 +176,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
   const colunaCredito = String(formData.get("colunaCredito") ?? "") || undefined;
   const colunaDebito = String(formData.get("colunaDebito") ?? "") || undefined;
   const colunaParcela = String(formData.get("colunaParcela") ?? "") || undefined;
+  const colunaCartao = String(formData.get("colunaCartao") ?? "") || undefined;
   const formatoData = String(formData.get("formatoData") ?? "DD/MM/YYYY");
   const formatoMonetario = (String(formData.get("formatoMonetario") ?? "BR") as "BR" | "US");
   const dataReferencia = String(formData.get("dataReferencia") ?? "") || undefined;
@@ -193,14 +200,20 @@ export async function processarImportacao(formData: FormData): Promise<Processar
   const buffer = Buffer.from(await arquivo.arrayBuffer());
   const hashArquivo = calcularHashArquivo(buffer);
 
-  const { data: docExistente } = await supabase
+  let queryDocExistente = supabase
     .from("documentos_origem")
     .select("id")
     .eq("perfil_id", perfilId)
     .eq("hash", hashArquivo)
-    .maybeSingle();
+    .neq("status_processamento", "falhou");
+  queryDocExistente = aba ? queryDocExistente.eq("aba", aba) : queryDocExistente.is("aba", null);
+  const { data: docExistente } = await queryDocExistente.maybeSingle();
   if (docExistente) {
-    throw new Error("Este arquivo já foi importado anteriormente (mesmo conteúdo detectado).");
+    throw new Error(
+      tipoArquivo === "xlsx"
+        ? "Esta aba deste arquivo já foi importada anteriormente (mesmo conteúdo e aba detectados)."
+        : "Este arquivo já foi importado anteriormente (mesmo conteúdo detectado).",
+    );
   }
 
   const storagePath = `${user.id}/${Date.now()}-${arquivo.name}`;
@@ -217,6 +230,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
       cartao_id: cartaoId,
       nome_arquivo: arquivo.name,
       hash: hashArquivo,
+      aba: aba ?? null,
       storage_path: storagePath,
       status_processamento: "extraindo",
     })
@@ -240,14 +254,48 @@ export async function processarImportacao(formData: FormData): Promise<Processar
     await supabase.from("eventos_importacao").insert({ lote_id: lote.id, tipo: "erro", detalhe: erro });
   }
 
+  // Faturas com mais de um cartão da mesma conta (físico/virtual/adicional)
+  // trazem uma coluna por linha com o final do cartão — resolve o cartao_id
+  // real de cada linha por essa coluna, em vez de usar sempre o cartão
+  // selecionado no envio (ADR-003: titular do cartão não define o objetivo).
+  const mapaCartaoPorFinal = new Map<string, string>();
+  if (colunaCartao) {
+    const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id, ultimos_4_digitos").eq("perfil_id", perfilId);
+    for (const c of cartoesDoPerfil ?? []) {
+      if (c.ultimos_4_digitos) mapaCartaoPorFinal.set(String(c.ultimos_4_digitos).trim(), c.id as string);
+    }
+
+    // Faturas exportadas costumam preencher a coluna do cartão só na primeira
+    // linha de cada bloco, deixando as demais em branco (valor "repetido
+    // visualmente", não de fato). Preenche pra baixo com o último valor visto.
+    let ultimoValorCartao: string | undefined;
+    for (const linha of linhas) {
+      const bruto = linha.valores[colunaCartao]?.trim();
+      if (bruto) ultimoValorCartao = bruto;
+      else if (ultimoValorCartao) linha.valores[colunaCartao] = ultimoValorCartao;
+    }
+  }
+
   let linhasValidas = 0;
   let linhasInvalidas = 0;
+  let pagamentosIgnorados = 0;
   let totalExtraido = 0;
   let duplicatasSinalizadas = 0;
 
   for (const linha of linhas) {
     const dataBruta = linha.valores[colunaData];
     const descricaoBruta = linha.valores[colunaDescricao]?.trim();
+
+    if (descricaoBruta && PADRAO_PAGAMENTO_FATURA.test(descricaoBruta)) {
+      pagamentosIgnorados++;
+      // Nunca gravar a descrição bruta no evento (SECURITY-AND-DATA.md).
+      await supabase.from("eventos_importacao").insert({
+        lote_id: lote.id,
+        tipo: "linha_invalida",
+        detalhe: `Linha ${linha.numeroLinha}: identificada como pagamento da fatura (não é gasto) — não importada.`,
+      });
+      continue;
+    }
 
     const dataIso = dataBruta ? parseDataCsv(dataBruta, formatoData, dataReferencia) : null;
 
@@ -260,6 +308,23 @@ export async function processarImportacao(formData: FormData): Promise<Processar
       if (credito !== null && credito !== 0) valorCentavos = Math.abs(credito);
       else if (debito !== null && debito !== 0) valorCentavos = -Math.abs(debito);
       else valorCentavos = null;
+    }
+
+    let cartaoIdLinha = cartaoId;
+    if (colunaCartao) {
+      const finalCartaoBruto = linha.valores[colunaCartao]?.trim();
+      const resolvido = finalCartaoBruto ? mapaCartaoPorFinal.get(finalCartaoBruto) : undefined;
+      if (!resolvido) {
+        linhasInvalidas++;
+        // Nunca gravar o final do cartão bruto no evento — só a posição da linha (SECURITY-AND-DATA.md).
+        await supabase.from("eventos_importacao").insert({
+          lote_id: lote.id,
+          tipo: "linha_invalida",
+          detalhe: `Linha ${linha.numeroLinha}: final de cartão não corresponde a nenhum cartão cadastrado.`,
+        });
+        continue;
+      }
+      cartaoIdLinha = resolvido;
     }
 
     if (!dataIso || !descricaoBruta || valorCentavos === null) {
@@ -278,13 +343,13 @@ export async function processarImportacao(formData: FormData): Promise<Processar
       data: dataIso,
       valor: valorCentavos,
       fornecedorOriginal: descricaoBruta,
-      cartaoId,
+      cartaoId: cartaoIdLinha,
     });
 
     const { data: possivelDuplicata } = await supabase
       .from("lancamentos_brutos")
       .select("id")
-      .eq("cartao_id", cartaoId)
+      .eq("cartao_id", cartaoIdLinha)
       .eq("identificador_deduplicacao", idDedup)
       .maybeSingle();
 
@@ -295,7 +360,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
       .from("lancamentos_brutos")
       .insert({
         lote_importacao_id: lote.id,
-        cartao_id: cartaoId,
+        cartao_id: cartaoIdLinha,
         competencia_calculada: competencia,
         data: dataIso,
         fornecedor_original: descricaoBruta,
@@ -338,40 +403,50 @@ export async function processarImportacao(formData: FormData): Promise<Processar
     totalExtraido += valorCentavos;
   }
 
+  // 0 linhas válidas indica mapeamento de colunas errado, não uma fatura sem
+  // lançamentos — marca como "falhou" em vez de "concluído" pra não travar
+  // uma nova tentativa (dedup por hash+aba) nem "aprender" a configuração
+  // errada como perfil reutilizável.
+  const importacaoTeveSucesso = linhasValidas > 0;
+  const statusFinal = importacaoTeveSucesso ? "concluido" : "falhou";
+
   await supabase
     .from("lotes_importacao")
     .update({
-      status: "concluido",
+      status: statusFinal,
       concluido_em: new Date().toISOString(),
       quantidade_extraida: linhasValidas,
       total_extraido: totalExtraido,
     })
     .eq("id", lote.id);
 
-  await supabase.from("documentos_origem").update({ status_processamento: "concluido" }).eq("id", documento.id);
+  await supabase.from("documentos_origem").update({ status_processamento: statusFinal }).eq("id", documento.id);
 
-  await supabase.from("perfis_importacao").upsert(
-    {
-      perfil_id: perfilId,
-      cartao_id: cartaoId,
-      instituicao: cartao?.instituicao ?? "Desconhecida",
-      tipo_arquivo: tipoArquivo,
-      aba: aba ?? null,
-      linhas_para_pular: linhasParaPular,
-      delimitador,
-      formato_data: formatoData,
-      formato_monetario: formatoMonetario,
-      coluna_data: colunaData,
-      coluna_descricao: colunaDescricao,
-      modo_valor: modoValor,
-      coluna_valor: colunaValor ?? null,
-      coluna_credito: colunaCredito ?? null,
-      coluna_debito: colunaDebito ?? null,
-      coluna_parcela: colunaParcela ?? null,
-      ultima_utilizacao: new Date().toISOString(),
-    },
-    { onConflict: "cartao_id" },
-  );
+  if (importacaoTeveSucesso) {
+    await supabase.from("perfis_importacao").upsert(
+      {
+        perfil_id: perfilId,
+        cartao_id: cartaoId,
+        instituicao: cartao?.instituicao ?? "Desconhecida",
+        tipo_arquivo: tipoArquivo,
+        aba: aba ?? null,
+        linhas_para_pular: linhasParaPular,
+        delimitador,
+        formato_data: formatoData,
+        formato_monetario: formatoMonetario,
+        coluna_data: colunaData,
+        coluna_descricao: colunaDescricao,
+        modo_valor: modoValor,
+        coluna_valor: colunaValor ?? null,
+        coluna_credito: colunaCredito ?? null,
+        coluna_debito: colunaDebito ?? null,
+        coluna_parcela: colunaParcela ?? null,
+        coluna_cartao: colunaCartao ?? null,
+        ultima_utilizacao: new Date().toISOString(),
+      },
+      { onConflict: "cartao_id" },
+    );
+  }
 
   revalidatePath("/enviar");
   revalidatePath("/caixa-de-entrada");
@@ -382,6 +457,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
     totalLinhas: linhas.length,
     linhasValidas,
     linhasInvalidas,
+    pagamentosIgnorados,
     duplicatasSinalizadas,
     totalExtraido,
   };

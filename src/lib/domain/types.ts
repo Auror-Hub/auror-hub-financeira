@@ -211,6 +211,8 @@ export interface PerfilImportacao {
   colunaDebito?: string;
   colunaParcela?: string;
   colunaMoeda?: string;
+  /** Coluna com o final do cartão por linha, quando a fatura cobre mais de um cartão da mesma conta. */
+  colunaCartao?: string;
   transformacoes?: Record<string, unknown>;
   ultimaUtilizacao?: DataHoraISO;
   criadoEm: DataHoraISO;

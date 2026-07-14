@@ -50,6 +50,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
   const [colunaCredito, setColunaCredito] = useState("");
   const [colunaDebito, setColunaDebito] = useState("");
   const [colunaParcela, setColunaParcela] = useState("");
+  const [colunaCartao, setColunaCartao] = useState("");
   const [formatoData, setFormatoData] = useState("DD/MM/YYYY");
   const [formatoMonetario, setFormatoMonetario] = useState<"BR" | "US">("BR");
   const [dataReferencia, setDataReferencia] = useState("");
@@ -76,6 +77,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
     setColunaCredito(p.colunaCredito ?? "");
     setColunaDebito(p.colunaDebito ?? "");
     setColunaParcela(p.colunaParcela ?? "");
+    setColunaCartao(p.colunaCartao ?? "");
     setFormatoData(p.formatoData);
     setFormatoMonetario(p.formatoMonetario);
   }
@@ -129,6 +131,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
         formData.set("colunaCredito", colunaCredito);
         formData.set("colunaDebito", colunaDebito);
         formData.set("colunaParcela", colunaParcela);
+        formData.set("colunaCartao", colunaCartao);
         formData.set("formatoData", formatoData);
         formData.set("formatoMonetario", formatoMonetario);
         formData.set("dataReferencia", dataReferencia);
@@ -155,6 +158,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
     setColunaCredito("");
     setColunaDebito("");
     setColunaParcela("");
+    setColunaCartao("");
     setDataReferencia("");
   }
 
@@ -328,7 +332,22 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
               opcoes={analise.cabecalhos}
               opcional
             />
+            <SeletorColuna
+              label="Coluna do cartão (opcional — se a fatura cobrir mais de um cartão da mesma conta)"
+              valor={colunaCartao}
+              onChange={setColunaCartao}
+              opcoes={analise.cabecalhos}
+              opcional
+            />
           </div>
+          {colunaCartao && (
+            <p className="text-sm text-text-muted">
+              Cada linha será atribuída ao cartão cujo final de dígitos cadastrado em Configurações bater com o valor
+              desta coluna. Se a fatura só preencher essa coluna na primeira linha de cada bloco de cartão (comum em
+              planilhas exportadas), as linhas seguintes reaproveitam automaticamente o último valor visto. Linhas sem
+              nenhuma correspondência ficam marcadas como inválidas para revisão.
+            </p>
+          )}
 
           <fieldset className="flex flex-col gap-2 rounded-card border border-border-subtle p-3">
             <legend className="eyebrow px-1">Como o valor aparece na fatura</legend>
@@ -392,6 +411,11 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
           <div className="flex flex-wrap gap-2">
             {resultado.linhasInvalidas > 0 && (
               <Badge tone="gold">{resultado.linhasInvalidas} linha(s) inválida(s) — ver auditoria</Badge>
+            )}
+            {resultado.pagamentosIgnorados > 0 && (
+              <Badge tone="slate">
+                {resultado.pagamentosIgnorados} pagamento(s) de fatura ignorado(s) (não são gasto)
+              </Badge>
             )}
             {resultado.duplicatasSinalizadas > 0 && (
               <Badge tone="terra">{resultado.duplicatasSinalizadas} possível(is) duplicata(s) sinalizada(s)</Badge>
