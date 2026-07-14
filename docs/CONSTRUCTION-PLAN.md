@@ -15,9 +15,11 @@ Duas decisões confirmadas por Victoria para viabilizar essa separação:
 
 **Por que isso não viola D10** ("MVP roda com persistência real desde a Fase 1, não com dados mockados") **nem o princípio "não construir interface sobre modelo frágil":** os tipos TypeScript usados para os dados mockados da Etapa 1 espelham exatamente as entidades (`ENT-RAW-TRANSACTION`, `ENT-CLASSIFICATION-PROPOSAL`, `ENT-CLASSIFICATION-DECISION`, `ENT-COMPETENCY`, etc.) já congeladas na Arquitetura Completa — não são inventados livremente pelo frontend. A Etapa 1 é explicitamente rotulada como scaffold de UI, não como funcionalidade entregue; nenhuma competência real é fechada, nenhum lançamento real é classificado, até a Etapa 2 religar os dados de verdade.
 
+**Nota (2026-07-13):** o contexto oficial do MVP foi corrigido para representar as finanças conjuntas da Família Gama, não as pessoais da Victoria — ver [ADR-003](decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md) e [`TAXONOMIA-INICIAL.md`](product/TAXONOMIA-INICIAL.md). Isso também consolidou a classificação em 4 dimensões (categoria/subcategoria/objetivo/contexto), reduzindo as 6 originais. FE-1/FE-2/FE-3 já implementadas usam o modelo de 6 dimensões e objetivos genéricos — ficam **temporariamente desalinhadas** até um pacote de correção (ver ADR-003, seção de impacto no código). Isso não bloqueia FE-4/FE-5.
+
 ## Etapa 1 — Frontend (Next.js + Tailwind, sem Supabase)
 
-Cinco fases. Nenhuma delas toca o Supabase — tudo roda contra uma camada de dados mockados/sintéticos, nunca dados reais de Victoria.
+Cinco fases. Nenhuma delas toca o Supabase — tudo roda contra uma camada de dados mockados/sintéticos, nunca dados reais de Victoria, Paulo ou Malu.
 
 ### FE-1 — Fundação de frontend ✅ concluída
 - Scaffold Next.js 16 (App Router) + TypeScript `strict`, conforme ADR-001.
@@ -54,7 +56,7 @@ Projeto Supabase (criado manualmente por Victoria), schema `ENT-USER`/`ENT-PROFI
 `ENT-SOURCE-DOCUMENT`/`IMPORT-BATCH`/`IMPORT-EVENT`/`RAW-TRANSACTION`/`POSSIBLE-DUPLICATE`, perfil de importação (`ENT-IMPORT-PROFILE`), upload real de CSV, validação, conciliação, dedup, teste de imutabilidade (RUL-1).
 
 ### BE-3 — Inteligência (estrutura)
-Taxonomia seed, padronização de fornecedores, motor de classificação inicial, religar a Caixa de Entrada a propostas reais.
+Taxonomia seed a partir de [`TAXONOMIA-INICIAL.md`](product/TAXONOMIA-INICIAL.md) (4 dimensões — categoria/subcategoria/objetivo/contexto, 17 categorias, 13 objetivos; ver [ADR-003](decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md)), padronização de fornecedores, motor de classificação inicial, religar a Caixa de Entrada a propostas reais. Inclui o pacote de correção do código de FE-2/FE-3 (hoje com 6 dimensões e objetivos genéricos) para o modelo consolidado.
 
 ### BE-4 — Revisão humana real
 `ENT-CLASSIFICATION-DECISION`/`REVIEW-EVENT`/`EXCEPTION` persistidos, auditoria append-only reforçada no banco (RUL-10).

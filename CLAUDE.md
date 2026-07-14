@@ -2,6 +2,8 @@
 
 Este projeto é construído integralmente por Victoria Gama com apoio do Claude Code. Não existe equipe separada de produto ou engenharia — a documentação e este arquivo existem para reduzir ambiguidade, não para coordenar pessoas.
 
+**Contexto do produto:** a AURÓR · Hub Financeira é validada inicialmente por Victoria Gama como operadora, utilizando as finanças conjuntas da Família Gama (Victoria, Paulo, Malu) — não as finanças pessoais individuais da Victoria. Nunca descrever o produto como controle financeiro pessoal de uma única pessoa. Ver [ADR-003](docs/decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md).
+
 ## Fontes de verdade
 
 Leia antes de qualquer implementação relevante:
@@ -9,7 +11,8 @@ Leia antes de qualquer implementação relevante:
 - **Blueprint de produto:** [`docs/product/AUROR-HUB-FINANCEIRA-BLUEPRINT-V01.md`](docs/product/AUROR-HUB-FINANCEIRA-BLUEPRINT-V01.md) — autointitulado "Blueprint de Produto e Arquitetura — V0.1".
 - **Arquitetura completa:** [`docs/architecture/AURÓR - Arquitetura Completa V1.md`](docs/architecture/AURÓR%20-%20Arquitetura%20Completa%20V1.md) — telas, jornadas, entidades, agentes, regras, fases.
 - **Adaptação visual:** [`docs/design/HUB-FINANCEIRA-DESIGN-ADAPTATION.md`](docs/design/HUB-FINANCEIRA-DESIGN-ADAPTATION.md).
-- **Decisões técnicas:** [`docs/decisions/`](docs/decisions/) (ADRs) — inclui [ADR-001](docs/decisions/ADR-001-STACK-TECNICA.md) (stack) e [ADR-002](docs/decisions/ADR-002-FORMATO-IMPORTACAO-CSV.md) (CSV como formato principal de importação do MVP, PDF adiado).
+- **Decisões técnicas:** [`docs/decisions/`](docs/decisions/) (ADRs) — inclui [ADR-001](docs/decisions/ADR-001-STACK-TECNICA.md) (stack), [ADR-002](docs/decisions/ADR-002-FORMATO-IMPORTACAO-CSV.md) (CSV como formato principal de importação do MVP, PDF adiado) e [ADR-003](docs/decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md) (contexto familiar do MVP, taxonomia consolidada em 4 dimensões).
+- **Taxonomia inicial:** [`docs/product/TAXONOMIA-INICIAL.md`](docs/product/TAXONOMIA-INICIAL.md) — categorias, subcategorias, objetivos e regras de interpretação/integridade.
 - **Roadmap:** [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 Nunca reinterprete o produto a partir deste arquivo. Se este arquivo e uma fonte de verdade divergirem, a fonte de verdade vence — sinalize a divergência em vez de decidir sozinho.
@@ -39,13 +42,13 @@ A Hub Financeira não é planilha, não é dashboard genérico, não é ERP, nã
 
 ## Limites do MVP
 
-Dentro: faturas de cartão de crédito, uso pessoal (usuária única — Victoria), Caixa de Entrada, taxonomia, fornecedores, regras simples, competências (fechamento/reabertura), análises de variação, relatório HTML, consulta básica ao acervo.
+Dentro: faturas de cartão de crédito **compartilhado da Família Gama** (Victoria, Paulo, Malu — uma única sessão autenticada, operada por Victoria), Caixa de Entrada, taxonomia (4 dimensões: categoria, subcategoria, objetivo, contexto — ver [TAXONOMIA-INICIAL.md](docs/product/TAXONOMIA-INICIAL.md)), fornecedores, regras simples, competências (fechamento/reabertura), análises de variação, relatório HTML, consulta básica ao acervo.
 
-Fora do MVP: Open Finance, integração bancária automática, investimentos, contabilidade, fluxo de caixa empresarial, múltiplos perfis funcionais simultâneos, aplicativo mobile nativo. O schema já prevê `ENT-USER`/`ENT-PROFILE` separados para essa evolução, mas nenhuma tela ou fluxo multi-perfil deve ser construída agora.
+Fora do MVP: Open Finance, integração bancária automática, investimentos, contabilidade, fluxo de caixa empresarial, múltiplos usuários/logins, permissões diferenciadas por membro da família, rateio de gasto entre pessoas, perfis técnicos separados por membro (Victoria/Paulo/Malu como contas distintas), aplicativo mobile nativo. A distinção entre pessoas acontece só na dimensão **Objetivo** de um único acervo compartilhado — nunca em contas/perfis separados. O schema já prevê `ENT-USER`/`ENT-PROFILE` separados para evolução futura, mas nenhuma tela ou fluxo multi-perfil deve ser construída agora.
 
 ## Segurança
 
-- Nunca inserir dados financeiros reais em commits, fixtures ou exemplos de código.
+- Nunca inserir dados financeiros reais em commits, fixtures ou exemplos de código — vale para gastos de Victoria, Paulo, Malu ou qualquer terceiro.
 - Nunca criar arquivos de exemplo com dados pessoais reais (nomes, valores, faturas).
 - Nunca enviar CSVs ou PDFs reais de fatura ao Git.
 - Nunca expor segredos (chaves, tokens) em código ou documentação.

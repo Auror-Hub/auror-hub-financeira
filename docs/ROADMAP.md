@@ -4,11 +4,13 @@ Resumo das fases definidas em [`docs/architecture/AURÓR - Arquitetura Completa 
 
 **Nota de divergência:** a Fase 1, abaixo, reflete [ADR-002](decisions/ADR-002-FORMATO-IMPORTACAO-CSV.md) (CSV como formato principal do MVP), que diverge da premissa original de PDF-como-documento-primário assumida no documento-fonte. O documento-fonte não foi alterado; a divergência está registrada no ADR.
 
+**Nota de divergência (contexto e taxonomia):** o MVP representa as finanças conjuntas da **Família Gama** (Victoria, Paulo, Malu), com Victoria como operadora — não as finanças pessoais dela, como o documento-fonte assumia. A taxonomia da Fase 2 é consolidada em 4 dimensões (categoria/subcategoria/objetivo/contexto), não as 6 originais. Ver [ADR-003](decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md) e [`TAXONOMIA-INICIAL.md`](product/TAXONOMIA-INICIAL.md).
+
 ## Fases
 
 - **Fase 0 — Fundação.** Repositório, schema Postgres com migrations, autenticação básica, estrutura de pastas, design system mínimo. Sem dependências anteriores.
 - **Fase 1 — Domínio bruto.** Upload de CSV (formato principal do MVP — ver [ADR-002](decisions/ADR-002-FORMATO-IMPORTACAO-CSV.md)) → identificação/mapeamento de perfil de importação → normalização de colunas → cálculo de competência → conciliação de totais (quando disponível) → detecção de duplicidade → lançamento bruto imutável. PDF fica como formato complementar de evolução futura, não requisito do MVP.
-- **Fase 2 — Inteligência (estrutura).** Taxonomia inicial, padronização de fornecedores, motor de classificação com confiança e justificativa por dimensão.
+- **Fase 2 — Inteligência (estrutura).** Taxonomia inicial (ver [`TAXONOMIA-INICIAL.md`](product/TAXONOMIA-INICIAL.md) — 4 dimensões, 17 categorias, 13 objetivos), padronização de fornecedores, motor de classificação com confiança e justificativa por dimensão.
 - **Fase 3 — Revisão humana.** Caixa de Entrada funcional: fila, ações de revisão, revisão em lote, drawer de detalhe, auditoria básica.
 - **Fase 5 — Competências.** Ciclo de vida completo: estados, fechamento (snapshot versionado), reabertura (nova versão, preserva a anterior).
 - **Fases 6 e 7 — Análise e relatórios.** Motor analítico (variação, despesas extraordinárias, mudanças de comportamento) e geração do relatório executivo HTML (14 seções), versionado e ancorado em snapshot imutável.

@@ -4,6 +4,8 @@
 
 Uma camada operacional inteligente construída sobre dados financeiros — transforma lançamentos de fatura de cartão de crédito em contexto, conhecimento, explicações, padrões, alertas, recomendações e decisões. A unidade de valor não é o lançamento importado; é a interpretação produzida a partir dele.
 
+A AURÓR · Hub Financeira será inicialmente validada por Victoria Gama como operadora, utilizando as finanças conjuntas da **Família Gama** (Victoria, Paulo, Malu) — não as finanças pessoais individuais da Victoria. Ver [ADR-003](docs/decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md).
+
 ## O que não é
 
 - Não é uma planilha.
@@ -44,7 +46,8 @@ Lançamentos brutos nunca são editados. Classificações vivem em camada separa
 | Arquitetura completa (telas, jornadas, entidades, agentes) | [`docs/architecture/AURÓR - Arquitetura Completa V1.md`](docs/architecture/AURÓR%20-%20Arquitetura%20Completa%20V1.md) |
 | Adaptação visual | [`docs/design/HUB-FINANCEIRA-DESIGN-ADAPTATION.md`](docs/design/HUB-FINANCEIRA-DESIGN-ADAPTATION.md) |
 | Referência visual bruta (não é fonte de produto) | [`docs/design/`](docs/design/) |
-| Decisões técnicas (ADRs) | [`docs/decisions/`](docs/decisions/) — [stack](docs/decisions/ADR-001-STACK-TECNICA.md), [formato de importação (CSV)](docs/decisions/ADR-002-FORMATO-IMPORTACAO-CSV.md) |
+| Decisões técnicas (ADRs) | [`docs/decisions/`](docs/decisions/) — [stack](docs/decisions/ADR-001-STACK-TECNICA.md), [formato de importação (CSV)](docs/decisions/ADR-002-FORMATO-IMPORTACAO-CSV.md), [contexto familiar e taxonomia](docs/decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md) |
+| Taxonomia inicial (categorias, subcategorias, objetivos) | [`docs/product/TAXONOMIA-INICIAL.md`](docs/product/TAXONOMIA-INICIAL.md) |
 | Roadmap de fases | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 | Setup local | [`docs/development/LOCAL-SETUP.md`](docs/development/LOCAL-SETUP.md) |
 | Segurança e dados | [`docs/development/SECURITY-AND-DATA.md`](docs/development/SECURITY-AND-DATA.md) |
