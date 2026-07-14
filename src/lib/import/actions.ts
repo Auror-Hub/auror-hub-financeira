@@ -65,6 +65,7 @@ export interface PerfilExistenteResumo {
   colunaDebito: string | null;
   colunaParcela: string | null;
   colunaCartao: string | null;
+  inverterSinal: boolean;
 }
 
 export interface AnalisarArquivoResultado {
@@ -110,6 +111,7 @@ export async function analisarArquivo(formData: FormData): Promise<AnalisarArqui
         colunaDebito: perfilRow.coluna_debito,
         colunaParcela: perfilRow.coluna_parcela,
         colunaCartao: perfilRow.coluna_cartao,
+        inverterSinal: perfilRow.inverter_sinal,
       }
     : null;
 
@@ -177,6 +179,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
   const colunaDebito = String(formData.get("colunaDebito") ?? "") || undefined;
   const colunaParcela = String(formData.get("colunaParcela") ?? "") || undefined;
   const colunaCartao = String(formData.get("colunaCartao") ?? "") || undefined;
+  const inverterSinal = String(formData.get("inverterSinal") ?? "") === "true";
   const formatoData = String(formData.get("formatoData") ?? "DD/MM/YYYY");
   const formatoMonetario = (String(formData.get("formatoMonetario") ?? "BR") as "BR" | "US");
   const dataReferencia = String(formData.get("dataReferencia") ?? "") || undefined;
@@ -310,6 +313,11 @@ export async function processarImportacao(formData: FormData): Promise<Processar
       else valorCentavos = null;
     }
 
+    // Convenção interna: gasto = negativo. Algumas instituições (ex.: Itaú)
+    // representam gasto como positivo no modo "uma coluna só" — inverte
+    // aqui pra manter o sinal consistente entre cartões de bancos diferentes.
+    if (inverterSinal && valorCentavos !== null) valorCentavos = -valorCentavos;
+
     let cartaoIdLinha = cartaoId;
     if (colunaCartao) {
       const finalCartaoBruto = linha.valores[colunaCartao]?.trim();
@@ -442,6 +450,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
         coluna_debito: colunaDebito ?? null,
         coluna_parcela: colunaParcela ?? null,
         coluna_cartao: colunaCartao ?? null,
+        inverter_sinal: inverterSinal,
         ultima_utilizacao: new Date().toISOString(),
       },
       { onConflict: "cartao_id" },

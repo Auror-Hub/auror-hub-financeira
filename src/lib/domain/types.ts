@@ -213,6 +213,8 @@ export interface PerfilImportacao {
   colunaMoeda?: string;
   /** Coluna com o final do cartão por linha, quando a fatura cobre mais de um cartão da mesma conta. */
   colunaCartao?: string;
+  /** Inverte o sinal do valor lido (modo "unica") — algumas instituições representam gasto como positivo. */
+  inverterSinal?: boolean;
   transformacoes?: Record<string, unknown>;
   ultimaUtilizacao?: DataHoraISO;
   criadoEm: DataHoraISO;

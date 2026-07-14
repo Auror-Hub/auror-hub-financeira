@@ -51,6 +51,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
   const [colunaDebito, setColunaDebito] = useState("");
   const [colunaParcela, setColunaParcela] = useState("");
   const [colunaCartao, setColunaCartao] = useState("");
+  const [inverterSinal, setInverterSinal] = useState(false);
   const [formatoData, setFormatoData] = useState("DD/MM/YYYY");
   const [formatoMonetario, setFormatoMonetario] = useState<"BR" | "US">("BR");
   const [dataReferencia, setDataReferencia] = useState("");
@@ -78,6 +79,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
     setColunaDebito(p.colunaDebito ?? "");
     setColunaParcela(p.colunaParcela ?? "");
     setColunaCartao(p.colunaCartao ?? "");
+    setInverterSinal(p.inverterSinal);
     setFormatoData(p.formatoData);
     setFormatoMonetario(p.formatoMonetario);
   }
@@ -132,6 +134,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
         formData.set("colunaDebito", colunaDebito);
         formData.set("colunaParcela", colunaParcela);
         formData.set("colunaCartao", colunaCartao);
+        formData.set("inverterSinal", String(inverterSinal));
         formData.set("formatoData", formatoData);
         formData.set("formatoMonetario", formatoMonetario);
         formData.set("dataReferencia", dataReferencia);
@@ -159,6 +162,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
     setColunaDebito("");
     setColunaParcela("");
     setColunaCartao("");
+    setInverterSinal(false);
     setDataReferencia("");
   }
 
@@ -366,7 +370,13 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
               </label>
             </div>
             {modoValor === "unica" ? (
-              <SeletorColuna label="Coluna de valor*" valor={colunaValor} onChange={setColunaValor} opcoes={analise.cabecalhos} />
+              <>
+                <SeletorColuna label="Coluna de valor*" valor={colunaValor} onChange={setColunaValor} opcoes={analise.cabecalhos} />
+                <label className="flex items-center gap-1.5 text-sm text-text-secondary">
+                  <input type="checkbox" checked={inverterSinal} onChange={(e) => setInverterSinal(e.target.checked)} />
+                  Inverter sinal (marque se valores positivos nesta coluna representam gasto, não crédito)
+                </label>
+              </>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <SeletorColuna
