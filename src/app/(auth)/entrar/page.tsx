@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -9,12 +9,25 @@ import { Button } from "@/components/ui/Button";
 type Modo = "entrar" | "criar-conta";
 
 export default function EntrarPage() {
+  return (
+    <Suspense fallback={null}>
+      <EntrarForm />
+    </Suspense>
+  );
+}
+
+function EntrarForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [modo, setModo] = useState<Modo>("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(
+    searchParams.get("erro") === "confirmacao"
+      ? "Não foi possível confirmar o e-mail (link expirado ou já usado). Tente entrar normalmente ou peça um novo cadastro."
+      : null,
+  );
   const [mensagem, setMensagem] = useState<string | null>(null);
 
   async function aoSubmeter(e: FormEvent) {
@@ -37,7 +50,11 @@ export default function EntrarPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({ email, password: senha });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password: senha,
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+    });
     setCarregando(false);
     if (error) {
       setErro(traduzErro(error.message));

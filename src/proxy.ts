@@ -33,8 +33,11 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isRotaLogin = request.nextUrl.pathname.startsWith(ROTA_LOGIN);
+  // /auth/confirm troca código/token por sessão — não tem usuário autenticado
+  // ainda quando é chamada, então não pode exigir sessão como as demais rotas.
+  const isRotaAuthCallback = request.nextUrl.pathname.startsWith("/auth/");
 
-  if (!user && !isRotaLogin) {
+  if (!user && !isRotaLogin && !isRotaAuthCallback) {
     const url = request.nextUrl.clone();
     url.pathname = ROTA_LOGIN;
     return NextResponse.redirect(url);
