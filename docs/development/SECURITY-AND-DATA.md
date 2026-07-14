@@ -14,6 +14,9 @@ Regras não negociáveis para qualquer trabalho neste repositório, em qualquer 
 - Nenhuma chave de API, token, senha ou credencial entra em código ou documentação versionada.
 - `.env.local` (e equivalentes) ficam fora do Git — ver `.gitignore` na raiz.
 - `.env.example` contém apenas nomes de variáveis, nunca valores reais nem placeholders que pareçam valores reais.
+- **Nunca colar valor real de chave/token/senha em uma conversa de chat** (com o Claude Code ou qualquer outra ferramenta) — mesmo que a ferramenta prometa não persistir. Editar `.env.local` diretamente no editor local é o único caminho. Se um valor real acabar aparecendo no contexto de uma sessão (ex.: notificação automática de arquivo alterado), a resposta não deve reproduzir esse valor de volta.
+- `SUPABASE_SERVICE_ROLE_KEY` ignora toda RLS — só pode ser usada em código server-only (`src/lib/supabase/admin.ts`, marcado com `import "server-only"` para falhar o build se importado por engano num Client Component).
+- Verificação de RLS/triggers contra o banco real deve usar **usuários de teste descartáveis**, criados via Admin API (nunca a conta real da operadora) e removidos ao final da verificação — nunca deixar contas de teste esquecidas no projeto real.
 
 ## Logs
 

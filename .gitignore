@@ -39,8 +39,9 @@ yarn-error.log*
 **/fixtures/real/
 **/dados-reais/
 
-# Dumps e exports de banco
+# Dumps e exports de banco (migrations versionadas em supabase/migrations/ são exceção — código, não dump)
 *.sql
+!supabase/migrations/*.sql
 *.dump
 supabase/.temp/
 supabase/.branches/

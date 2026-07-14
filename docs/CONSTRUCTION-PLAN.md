@@ -52,8 +52,15 @@ Cinco fases. Nenhuma delas toca o Supabase — tudo roda contra uma camada de da
 
 Cinco fases, seguindo a ordem já aprovada no roadmap (F0 → F1 → F2 → F3 → F5).
 
-### BE-1 — Fundação de dados
-Projeto Supabase (criado manualmente por Victoria), schema `ENT-USER`/`ENT-PROFILE`/`ENT-CARD`/`ENT-SETTINGS`, migrations, RLS, Supabase Auth real substituindo a sessão simulada, healthcheck real.
+### BE-1 — Fundação de dados ✅ concluída
+- Projeto Supabase criado por Victoria; credenciais em `.env.local` (nunca coladas em chat — ver `SECURITY-AND-DATA.md`).
+- Migration `supabase/migrations/20260714085640_fundacao_dados.sql`: tabelas `usuarios`/`perfis`/`cartoes`/`configuracoes` (`ENT-USER`/`ENT-PROFILE`/`ENT-CARD`/`ENT-SETTINGS`), RLS em todas, trigger `handle_new_user` provisionando perfil "Família Gama" automaticamente no cadastro (ver ADR-003 — `tipo='familia'`, divergindo do `'pessoal'` da Arquitetura Completa original).
+- `src/lib/supabase/{client,server,admin}.ts` — clientes browser/server (RLS) e admin (service role, `server-only`, nunca exposto ao cliente).
+- `src/proxy.ts` (convenção Next.js 16, substitui `middleware.ts`) — protege rotas autenticadas, redireciona para `/entrar` sem sessão.
+- Rotas reorganizadas em route groups: `(app)` (shell + sessão real) e `(auth)/entrar` (login/cadastro, sem shell).
+- `SessionContext` agora recebe sessão real (nome do perfil vindo do banco) via `(app)/layout.tsx`, não mais mock.
+- Healthcheck real em `/api/health`.
+- Validado: lint/typecheck/test/build limpos; script descartável confirmou que o trigger provisiona corretamente e que RLS bloqueia de fato o acesso entre usuários (dois usuários de teste criados via Admin API, testados e removidos — nunca usando credenciais reais); fluxo completo testado no browser (cadastro → login → shell com "Família Gama" → logout → redirecionamento).
 
 ### BE-2 — Domínio bruto (importação CSV, ADR-002)
 `ENT-SOURCE-DOCUMENT`/`IMPORT-BATCH`/`IMPORT-EVENT`/`RAW-TRANSACTION`/`POSSIBLE-DUPLICATE`, perfil de importação (`ENT-IMPORT-PROFILE`), upload real de CSV, validação, conciliação, dedup, teste de imutabilidade (RUL-1).

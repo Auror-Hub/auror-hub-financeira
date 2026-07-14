@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, DM_Mono } from "next/font/google";
 import "./globals.css";
-import { SessionProvider } from "@/lib/session/SessionContext";
-import { AppShell } from "@/components/layout/AppShell";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta-sans",
@@ -24,11 +22,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR" className={`${plusJakartaSans.variable} ${dmMono.variable}`}>
-      <body className="antialiased">
-        <SessionProvider>
-          <AppShell>{children}</AppShell>
-        </SessionProvider>
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
