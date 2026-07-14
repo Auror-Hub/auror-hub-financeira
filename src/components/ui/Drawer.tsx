@@ -1,8 +1,9 @@
 "use client";
 
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 export interface DrawerProps {
   open: boolean;
@@ -20,6 +21,9 @@ export interface DrawerProps {
  * arquitetura para SCR-TXN-DETAIL-001 e afins: nunca página cheia).
  */
 export function Drawer({ open, onClose, title, subtitle, children, footer, width = 420 }: DrawerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(containerRef, open);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -39,11 +43,13 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
         className="absolute inset-0 bg-[rgb(28_25_22_/_0.28)] transition-opacity duration-150"
       />
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         className={cn(
-          "relative flex h-full flex-col bg-surface-primary shadow-[var(--shadow-overlay)]",
+          "relative flex h-full flex-col bg-surface-primary shadow-[var(--shadow-overlay)] outline-none",
           "animate-[drawer-in_var(--dur-slow)_var(--ease-settle)]",
         )}
         style={{ width }}

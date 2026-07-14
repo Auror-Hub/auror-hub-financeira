@@ -13,6 +13,7 @@ Leia antes de qualquer implementação relevante:
 - **Adaptação visual:** [`docs/design/HUB-FINANCEIRA-DESIGN-ADAPTATION.md`](docs/design/HUB-FINANCEIRA-DESIGN-ADAPTATION.md).
 - **Decisões técnicas:** [`docs/decisions/`](docs/decisions/) (ADRs) — inclui [ADR-001](docs/decisions/ADR-001-STACK-TECNICA.md) (stack), [ADR-002](docs/decisions/ADR-002-FORMATO-IMPORTACAO-CSV.md) (CSV como formato principal de importação do MVP, PDF adiado) e [ADR-003](docs/decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md) (contexto familiar do MVP, taxonomia consolidada em 4 dimensões).
 - **Taxonomia inicial:** [`docs/product/TAXONOMIA-INICIAL.md`](docs/product/TAXONOMIA-INICIAL.md) — categorias, subcategorias, objetivos e regras de interpretação/integridade.
+- **Contratos do frontend:** [`docs/development/FRONTEND-CONTRACTS.md`](docs/development/FRONTEND-CONTRACTS.md) — tipos TS que a Etapa 2 deve satisfazer, checklist de aderência ao design.
 - **Roadmap:** [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 Nunca reinterprete o produto a partir deste arquivo. Se este arquivo e uma fonte de verdade divergirem, a fonte de verdade vence — sinalize a divergência em vez de decidir sozinho.

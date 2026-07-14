@@ -19,7 +19,7 @@ A AURÓR · Hub Financeira será inicialmente validada por Victoria Gama como op
 
 ## Estágio atual
 
-Etapa 1 (Frontend) em andamento — ver [`docs/CONSTRUCTION-PLAN.md`](docs/CONSTRUCTION-PLAN.md). Fase FE-1 (fundação de frontend: scaffold Next.js/Tailwind, tokens visuais, shell de layout, navegação, sessão simulada) concluída. Ainda sem backend real — todas as telas rodam contra dados mockados até a Etapa 2.
+Etapa 1 (Frontend) concluída — ver [`docs/CONSTRUCTION-PLAN.md`](docs/CONSTRUCTION-PLAN.md). Fases FE-1 a FE-5 prontas: fundação de frontend, Home, Caixa de Entrada (fila, revisão individual e em lote), Competências (lista, detalhe, fechamento/reabertura) e ajustes finais de acessibilidade/responsividade. Ainda sem backend real — todas as telas rodam contra dados mockados até a Etapa 2 (Supabase).
 
 ## Stack proposta
 
@@ -51,6 +51,7 @@ Lançamentos brutos nunca são editados. Classificações vivem em camada separa
 | Roadmap de fases | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 | Setup local | [`docs/development/LOCAL-SETUP.md`](docs/development/LOCAL-SETUP.md) |
 | Segurança e dados | [`docs/development/SECURITY-AND-DATA.md`](docs/development/SECURITY-AND-DATA.md) |
+| Contratos do frontend para a Etapa 2 | [`docs/development/FRONTEND-CONTRACTS.md`](docs/development/FRONTEND-CONTRACTS.md) |
 | Fluxo de trabalho | [`docs/development/WORKFLOW.md`](docs/development/WORKFLOW.md) |
 | Instruções persistentes para o Claude Code | [`CLAUDE.md`](CLAUDE.md) |
 

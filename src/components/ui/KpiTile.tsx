@@ -29,14 +29,18 @@ export function KpiTile({ label, value, hint, tone = "default" }: KpiTileProps) 
 
 export interface KpiStripProps {
   children: React.ReactNode;
-  columns?: number;
 }
 
-export function KpiStrip({ children, columns = 4 }: KpiStripProps) {
+export function KpiStrip({ children }: KpiStripProps) {
   return (
     <div
       className="grid gap-px overflow-hidden rounded-card bg-border-default shadow-[var(--shadow-card)]"
-      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      style={{
+        // auto-fit: encolhe para menos colunas em telas estreitas em vez de
+        // espremer o valor até quebrar em várias linhas (tracks vazios
+        // colapsam, os existentes se expandem para preencher a largura).
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
+      }}
     >
       {children}
     </div>

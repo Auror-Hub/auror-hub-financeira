@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 export function InsightNarrative({ insight }: { insight: Insight }) {
   return (
     <Card accent="slate" className="p-3.5">
-      <h3 className="mb-1 text-md font-semibold text-text-primary">{insight.titulo}</h3>
+      <h2 className="mb-1 text-md font-semibold text-text-primary">{insight.titulo}</h2>
       <p className="text-base leading-relaxed text-text-secondary">{insight.explicacao}</p>
     </Card>
   );

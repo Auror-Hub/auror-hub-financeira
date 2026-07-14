@@ -31,19 +31,22 @@ Cinco fases. Nenhuma delas toca o Supabase — tudo roda contra uma camada de da
 - Shell de layout (rail + topbar + área de conteúdo + barra de ação) e navegação com os 11 itens do mapa de informação — todos como placeholder "em construção" por enquanto.
 - Contexto de sessão simulada (`SessionProvider`/`useSession`, usuário fake fixo, sem tela de login).
 
-### FE-2 — Camada de dados mockados + Home
+### FE-2 — Camada de dados mockados + Home ✅ concluída
 - Tipos TS espelhando os campos das entidades relevantes ao núcleo operacional e um conjunto pequeno de dados sintéticos plausíveis.
 - Home (`SCR-HOME-001`) com síntese interpretativa mockada.
 
-### FE-3 — Caixa de Entrada
+### FE-3 — Caixa de Entrada ✅ concluída
 - Fila (`SCR-INBOX-001`), revisão individual em drawer (`SCR-INBOX-REVIEW-001`) com `ConfidenceIndicator`/`SuggestionBlock`, revisão em lote (`SCR-INBOX-BATCH-001`).
 - Distinção visual fato/sugestão/decisão é o critério de qualidade mais importante desta fase.
 
-### FE-4 — Competências
-- Lista (`SCR-COMP-LIST-001`) e detalhe (`SCR-COMP-DETAIL-001`), modais de fechamento/reabertura — fluxo visual completo, sem persistência real.
+### FE-4 — Competências ✅ concluída
+- Lista (`SCR-COMP-LIST-001`) e detalhe (`SCR-COMP-DETAIL-001`, rota dinâmica `/competencias/[id]`), modais de fechamento (bloqueado quando há pendência) e reabertura (motivo obrigatório) — fluxo visual completo, sem persistência real.
 
-### FE-5 — Revisão e contratos para a Etapa 2
-- Acessibilidade/responsividade básica, checklist de aderência ao design doc, consolidação dos contratos TypeScript que a Etapa 2 deve satisfazer com dados reais.
+### FE-5 — Revisão e contratos para a Etapa 2 ✅ concluída
+- Acessibilidade: `useFocusTrap` (foco move para dentro do Drawer/Modal ao abrir, prende Tab/Shift+Tab, devolve foco a quem abriu ao fechar) aplicado em ambos.
+- Responsividade: `KpiStrip` corrigido para `auto-fit` (colunas encolhem em telas estreitas em vez de espremer o valor até quebrar em várias linhas) — bug real encontrado e corrigido durante a verificação desta fase.
+- Correção de hierarquia de heading (`InsightNarrative` h3→h2, evitando pular nível a partir do h1 da página).
+- Contratos TypeScript consolidados e documentados em [`FRONTEND-CONTRACTS.md`](development/FRONTEND-CONTRACTS.md), incluindo o checklist de aderência ao design e a divergência pendente do ADR-003 (6→4 dimensões) formalizada como passo explícito de BE-3.
 
 ## Etapa 2 — Backend (Supabase real, religando a Etapa 1)
 

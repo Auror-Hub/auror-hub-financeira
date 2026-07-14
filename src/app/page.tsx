@@ -27,7 +27,7 @@ export default function HomePage() {
       </section>
 
       {/* Números-chave */}
-      <KpiStrip columns={4}>
+      <KpiStrip>
         <KpiTile label="Total analisado" value={formatBRL(resumo.totalAnalisado)} />
         <KpiTile label="Lançamentos" value={String(resumo.quantidadeLancamentos)} />
         <KpiTile
