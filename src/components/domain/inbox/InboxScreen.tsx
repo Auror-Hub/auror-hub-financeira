@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Inbox, Layers, PartyPopper } from "lucide-react";
-import { ITENS_FILA } from "@/lib/mocks/inbox";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Inbox, Layers, PartyPopper, Sparkles } from "lucide-react";
 import type { ItemFila, StatusRevisaoLocal, TipoPendencia } from "@/lib/domain/inbox";
+import { classificarLancamentosPendentes } from "@/lib/classificacao/actions";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { ReviewCard } from "./ReviewCard";
 import { TransactionDrawer } from "./TransactionDrawer";
 import { BatchReviewPanel } from "./BatchReviewPanel";
@@ -18,7 +20,19 @@ const ORDENACOES: { valor: Ordenacao; rotulo: string }[] = [
   { valor: "fornecedor", rotulo: "Fornecedor" },
 ];
 
-export function InboxScreen() {
+export interface InboxScreenProps {
+  itens: ItemFila[];
+  rotulos: Record<string, string>;
+  categorias: { id: string; rotulo: string }[];
+  objetivos: { id: string; rotulo: string }[];
+  lancamentosSemProposta: number;
+}
+
+export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentosSemProposta }: InboxScreenProps) {
+  const router = useRouter();
+  const [pendenteClassificacao, startTransition] = useTransition();
+  const [erroClassificacao, setErroClassificacao] = useState<string | null>(null);
+
   const [decisoes, setDecisoes] = useState<Record<string, StatusRevisaoLocal>>({});
   const [filtroPendencia, setFiltroPendencia] = useState<TipoPendencia | "todas">("todas");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("confianca");
@@ -26,8 +40,8 @@ export function InboxScreen() {
   const [grupoLoteAberto, setGrupoLoteAberto] = useState<string | null>(null);
 
   const pendentes = useMemo(
-    () => ITENS_FILA.filter((i) => (decisoes[i.lancamento.id] ?? "pendente") === "pendente"),
-    [decisoes],
+    () => itens.filter((i) => (decisoes[i.lancamento.id] ?? "pendente") === "pendente"),
+    [itens, decisoes],
   );
 
   const tiposPresentes = useMemo(() => {
@@ -64,7 +78,7 @@ export function InboxScreen() {
     return Array.from(map.entries()).filter(([, itens]) => itens.length >= 2);
   }, [pendentes]);
 
-  const totalRevisados = ITENS_FILA.length - pendentes.length;
+  const totalRevisados = itens.length - pendentes.length;
   const itemAberto = filtrados.find((i) => i.lancamento.id === itemAbertoId) ?? null;
   const indexAberto = itemAberto ? filtrados.indexOf(itemAberto) : -1;
 
@@ -82,21 +96,53 @@ export function InboxScreen() {
     setGrupoLoteAberto(null);
   }
 
+  function gerarPropostas() {
+    setErroClassificacao(null);
+    startTransition(async () => {
+      try {
+        await classificarLancamentosPendentes();
+        router.refresh();
+      } catch (e) {
+        setErroClassificacao(e instanceof Error ? e.message : "Falha ao gerar propostas de classificação.");
+      }
+    });
+  }
+
+  const bannerPendentesClassificacao = lancamentosSemProposta > 0 && (
+    <div className="flex items-center justify-between gap-3 rounded-card border border-dashed border-indigo/40 bg-indigo-tint p-3">
+      <span className="flex items-center gap-2 text-base text-action-primary">
+        <Sparkles size={16} strokeWidth={1.75} />
+        {lancamentosSemProposta} lançamento{lancamentosSemProposta === 1 ? "" : "s"} aguardando classificação.
+      </span>
+      <Button variant="primary" size="sm" disabled={pendenteClassificacao} onClick={gerarPropostas}>
+        {pendenteClassificacao ? "Classificando..." : "Gerar propostas"}
+      </Button>
+    </div>
+  );
+
   if (pendentes.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-card bg-surface-primary p-10 text-center shadow-[var(--shadow-card)]">
-        <PartyPopper size={28} className="text-state-success" strokeWidth={1.5} />
-        <h1 className="text-xl font-semibold text-text-primary">Nenhuma pendência no momento</h1>
-        <p className="max-w-md text-base text-text-secondary">
-          Você revisou {totalRevisados} lançamento{totalRevisados === 1 ? "" : "s"} nesta sessão. A Caixa de
-          Entrada está limpa até a próxima importação.
-        </p>
+      <div className="flex flex-col gap-4">
+        {bannerPendentesClassificacao}
+        {erroClassificacao && <p className="text-sm text-terra">{erroClassificacao}</p>}
+        <div className="flex flex-col items-center gap-3 rounded-card bg-surface-primary p-10 text-center shadow-[var(--shadow-card)]">
+          <PartyPopper size={28} className="text-state-success" strokeWidth={1.5} />
+          <h1 className="text-xl font-semibold text-text-primary">Nenhuma pendência no momento</h1>
+          <p className="max-w-md text-base text-text-secondary">
+            {itens.length === 0
+              ? "Nenhum lançamento importado ainda — envie uma fatura para começar."
+              : `Você revisou ${totalRevisados} lançamento${totalRevisados === 1 ? "" : "s"} nesta sessão. A Caixa de Entrada está limpa até a próxima importação.`}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-5">
+      {bannerPendentesClassificacao}
+      {erroClassificacao && <p className="text-sm text-terra">{erroClassificacao}</p>}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Inbox size={20} className="text-text-muted" strokeWidth={1.75} />
@@ -131,7 +177,7 @@ export function InboxScreen() {
       </div>
 
       {/* Grupos elegíveis para revisão em lote */}
-      {gruposLote.map(([grupoId, itens]) => (
+      {gruposLote.map(([grupoId, itensDoGrupo]) => (
         <button
           key={grupoId}
           onClick={() => setGrupoLoteAberto(grupoId)}
@@ -139,7 +185,7 @@ export function InboxScreen() {
         >
           <span className="flex items-center gap-2 text-base text-action-primary">
             <Layers size={16} strokeWidth={1.75} />
-            {itens.length} lançamentos semelhantes de {itens[0].fornecedorNomeOriginal} — revisar em lote
+            {itensDoGrupo.length} lançamentos semelhantes de {itensDoGrupo[0].fornecedorNomeOriginal} — revisar em lote
           </span>
           <span className="text-sm font-medium text-action-primary">Abrir</span>
         </button>
@@ -151,6 +197,7 @@ export function InboxScreen() {
             key={item.lancamento.id}
             item={item}
             status={decisoes[item.lancamento.id] ?? "pendente"}
+            rotulos={rotulos}
             onAbrir={() => setItemAbertoId(item.lancamento.id)}
             onConfirmar={() => decidir(item.lancamento.id, "confirmado")}
           />
@@ -165,6 +212,9 @@ export function InboxScreen() {
       <TransactionDrawer
         item={itemAberto}
         status={itemAberto ? (decisoes[itemAberto.lancamento.id] ?? "pendente") : "pendente"}
+        rotulos={rotulos}
+        categorias={categorias}
+        objetivos={objetivos}
         onClose={() => setItemAbertoId(null)}
         onConfirmar={() => itemAberto && decidir(itemAberto.lancamento.id, "confirmado")}
         onCorrigir={() => itemAberto && decidir(itemAberto.lancamento.id, "corrigido")}
@@ -183,6 +233,7 @@ export function InboxScreen() {
       <BatchReviewPanel
         itens={grupoLoteAberto ? (gruposLote.find(([id]) => id === grupoLoteAberto)?.[1] ?? []) : []}
         open={!!grupoLoteAberto}
+        rotulos={rotulos}
         onClose={() => setGrupoLoteAberto(null)}
         onAplicar={(ids) => decidirGrupo(ids, "confirmado")}
       />

@@ -1,8 +1,6 @@
 import { Layers } from "lucide-react";
 import type { ItemFila, StatusRevisaoLocal } from "@/lib/domain/inbox";
 import { formatBRL, formatData } from "@/lib/format";
-import { nomeFornecedor } from "@/lib/mocks/merchants";
-import { rotuloTermo } from "@/lib/mocks/taxonomy";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 
@@ -19,15 +17,16 @@ const PENDENCIA_TONE: Record<string, BadgeTone> = {
 export interface ReviewCardProps {
   item: ItemFila;
   status: StatusRevisaoLocal;
+  rotulos: Record<string, string>;
   onAbrir: () => void;
   onConfirmar: () => void;
 }
 
-export function ReviewCard({ item, status, onAbrir, onConfirmar }: ReviewCardProps) {
+export function ReviewCard({ item, status, rotulos, onAbrir, onConfirmar }: ReviewCardProps) {
   const { lancamento, proposta } = item;
-  const fornecedor = nomeFornecedor(proposta.fornecedorSugeridoId) ?? item.fornecedorNomeOriginal;
-  const categoria = rotuloTermo(proposta.dimensoes.categoria);
-  const objetivo = rotuloTermo(proposta.dimensoes.objetivo);
+  const fornecedor = (proposta.fornecedorSugeridoId && rotulos[proposta.fornecedorSugeridoId]) || item.fornecedorNomeOriginal;
+  const categoria = proposta.dimensoes.categoria ? rotulos[proposta.dimensoes.categoria] : undefined;
+  const objetivo = proposta.dimensoes.objetivo ? rotulos[proposta.dimensoes.objetivo] : undefined;
   const decidido = status !== "pendente";
 
   return (

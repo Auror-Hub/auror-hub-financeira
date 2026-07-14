@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import {
   calcularCompetencia,
   calcularHashArquivo,
@@ -14,19 +14,6 @@ import { listarAbas, parseXlsxBruto } from "./parseXlsx";
 
 function detectarTipoArquivo(nomeArquivo: string): "csv" | "xlsx" {
   return /\.xlsx?$/i.test(nomeArquivo) ? "xlsx" : "csv";
-}
-
-async function perfilDoUsuarioAutenticado() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Não autenticado.");
-
-  const { data: perfil, error } = await supabase.from("perfis").select("id").eq("usuario_id", user.id).single();
-  if (error || !perfil) throw new Error("Perfil não encontrado.");
-
-  return { supabase, user, perfilId: perfil.id as string };
 }
 
 export async function criarCartao(formData: FormData) {

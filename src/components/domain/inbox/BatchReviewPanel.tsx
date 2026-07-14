@@ -11,12 +11,13 @@ import { SuggestionBlock } from "./SuggestionBlock";
 export interface BatchReviewPanelProps {
   itens: ItemFila[];
   open: boolean;
+  rotulos: Record<string, string>;
   onClose: () => void;
   onAplicar: (ids: string[]) => void;
 }
 
 /** SCR-INBOX-BATCH-001 — trata um grupo de lançamentos semelhantes como uma única decisão. */
-export function BatchReviewPanel({ itens, open, onClose, onAplicar }: BatchReviewPanelProps) {
+export function BatchReviewPanel({ itens, open, rotulos, onClose, onAplicar }: BatchReviewPanelProps) {
   const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
 
   if (!open || itens.length === 0) return null;
@@ -62,7 +63,7 @@ export function BatchReviewPanel({ itens, open, onClose, onAplicar }: BatchRevie
           algum item se ele não pertence a este grupo, depois aplique a decisão de uma vez só.
         </p>
 
-        <SuggestionBlock proposta={proposta} />
+        <SuggestionBlock proposta={proposta} rotulos={rotulos} />
 
         <div className="flex flex-col divide-y divide-border-subtle rounded-card border border-border-subtle">
           {itens.map((item) => {

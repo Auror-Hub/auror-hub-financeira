@@ -24,6 +24,13 @@ Regras não negociáveis para qualquer trabalho neste repositório, em qualquer 
 - Logs estruturados devem registrar identificadores (IDs, timestamps, tipos de evento) — não o conteúdo financeiro em si.
 - Isso vale para logs de erro também: uma falha de importação de CSV (ou extração de PDF, quando implementado) deve logar "falha ao processar documento X", não o conteúdo das linhas/colunas.
 
+## Serviços externos de IA (BE-3)
+
+- O motor de classificação (`src/lib/classificacao/`) só chama a API da Claude (Anthropic SDK) como *fallback* — quando não há fornecedor padronizado nem padrão genérico conhecido. A maioria dos lançamentos é classificada por regra determinística, sem sair da infraestrutura própria.
+- Quando a chamada acontece, o payload por lançamento é limitado a **descrição do fornecedor, valor e data** — nunca número de cartão, nunca nome de titular fora do que já está no texto da descrição, nunca `identificador_deduplicacao` ou qualquer outro campo interno.
+- `ANTHROPIC_API_KEY` é server-only (usada só dentro de `"use server"`/`server-only`), nunca `NEXT_PUBLIC_*`, seguindo a mesma regra de segredos acima.
+- Isso é o primeiro código do projeto que envia dado financeiro real para um serviço fora da infraestrutura própria (Supabase). Se um novo provedor de IA for adicionado no futuro, o mesmo princípio de minimização de payload se aplica.
+
 ## Armazenamento (Supabase Storage)
 
 - Bucket de documentos (CSV/PDF) deve ser **privado** — nunca público.

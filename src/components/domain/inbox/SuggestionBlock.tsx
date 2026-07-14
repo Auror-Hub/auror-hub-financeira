@@ -1,6 +1,4 @@
 import type { PropostaClassificacao } from "@/lib/domain/types";
-import { rotuloTermo } from "@/lib/mocks/taxonomy";
-import { nomeFornecedor } from "@/lib/mocks/merchants";
 import { Badge } from "@/components/ui/Badge";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 
@@ -8,9 +6,6 @@ const DIMENSAO_LABEL: Record<string, string> = {
   categoria: "Categoria",
   subcategoria: "Subcategoria",
   objetivo: "Objetivo",
-  natureza: "Natureza",
-  essencialidade: "Essencialidade",
-  tipoOcorrencia: "Tipo de ocorrência",
 };
 
 /**
@@ -18,8 +13,8 @@ const DIMENSAO_LABEL: Record<string, string> = {
  * ação/estado, para não se confundir com fato ou decisão (regra central do
  * design adaptation doc).
  */
-export function SuggestionBlock({ proposta }: { proposta: PropostaClassificacao }) {
-  const fornecedor = nomeFornecedor(proposta.fornecedorSugeridoId);
+export function SuggestionBlock({ proposta, rotulos }: { proposta: PropostaClassificacao; rotulos: Record<string, string> }) {
+  const fornecedor = proposta.fornecedorSugeridoId ? rotulos[proposta.fornecedorSugeridoId] : undefined;
   const dimensoesPreenchidas = Object.entries(proposta.dimensoes).filter(([, v]) => v);
 
   return (
@@ -39,10 +34,16 @@ export function SuggestionBlock({ proposta }: { proposta: PropostaClassificacao 
       <div className="flex flex-wrap gap-1.5">
         {dimensoesPreenchidas.map(([dim, termoId]) => (
           <Badge key={dim} tone="slate">
-            {DIMENSAO_LABEL[dim] ?? dim}: {rotuloTermo(termoId) ?? "—"}
+            {DIMENSAO_LABEL[dim] ?? dim}: {(termoId && rotulos[termoId]) ?? "—"}
           </Badge>
         ))}
       </div>
+
+      {proposta.contextoSugerido && (
+        <p className="text-sm text-text-muted">
+          <span className="font-medium">Contexto sugerido:</span> {proposta.contextoSugerido}
+        </p>
+      )}
 
       <ConfidenceIndicator valor={proposta.confiancaGeral} />
 

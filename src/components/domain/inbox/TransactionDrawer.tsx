@@ -4,7 +4,6 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Pencil, MessageSquarePlus, ShieldAlert } from "lucide-react";
 import type { ItemFila, StatusRevisaoLocal } from "@/lib/domain/inbox";
 import { formatBRL, formatData } from "@/lib/format";
-import { termosPorDimensao, rotuloTermo } from "@/lib/mocks/taxonomy";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -13,6 +12,9 @@ import { SuggestionBlock } from "./SuggestionBlock";
 export interface TransactionDrawerProps {
   item: ItemFila | null;
   status: StatusRevisaoLocal;
+  rotulos: Record<string, string>;
+  categorias: { id: string; rotulo: string }[];
+  objetivos: { id: string; rotulo: string }[];
   onClose: () => void;
   onConfirmar: () => void;
   onCorrigir: (categoriaId: string, objetivoId: string) => void;
@@ -27,6 +29,9 @@ type Modo = "detalhe" | "corrigir" | "excecao" | "contexto";
 export function TransactionDrawer({
   item,
   status,
+  rotulos,
+  categorias,
+  objetivos,
   onClose,
   onConfirmar,
   onCorrigir,
@@ -114,7 +119,7 @@ export function TransactionDrawer({
         {/* Sugestão da IA */}
         <section className="flex flex-col gap-2">
           <span className="eyebrow">Proposta</span>
-          <SuggestionBlock proposta={proposta} />
+          <SuggestionBlock proposta={proposta} rotulos={rotulos} />
         </section>
 
         {/* Pendências */}
@@ -163,9 +168,9 @@ export function TransactionDrawer({
                     className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
                   >
                     <option value="">
-                      {rotuloTermo(proposta.dimensoes.categoria) ?? "Selecionar"} (sugerido)
+                      {(proposta.dimensoes.categoria && rotulos[proposta.dimensoes.categoria]) ?? "Selecionar"} (sugerido)
                     </option>
-                    {termosPorDimensao("categoria").map((t) => (
+                    {categorias.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.rotulo}
                       </option>
@@ -179,8 +184,8 @@ export function TransactionDrawer({
                     onChange={(e) => setObjetivoId(e.target.value)}
                     className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
                   >
-                    <option value="">{rotuloTermo(proposta.dimensoes.objetivo) ?? "Selecionar"} (sugerido)</option>
-                    {termosPorDimensao("objetivo").map((t) => (
+                    <option value="">{(proposta.dimensoes.objetivo && rotulos[proposta.dimensoes.objetivo]) ?? "Selecionar"} (sugerido)</option>
+                    {objetivos.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.rotulo}
                       </option>

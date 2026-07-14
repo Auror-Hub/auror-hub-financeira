@@ -432,8 +432,9 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
             )}
           </div>
           <p className="text-sm text-text-muted">
-            Estes lançamentos ainda não aparecem na Caixa de Entrada — a classificação automática e a revisão real
-            chegam na fase BE-3. Por enquanto, os dados ficam salvos e auditáveis no banco.
+            Estes lançamentos já aparecem na Caixa de Entrada — use &ldquo;Gerar propostas&rdquo; lá pra receber
+            sugestões de classificação. Confirmar ou corrigir uma proposta ainda não grava decisão real (chega na
+            fase BE-4).
           </p>
           <Button
             variant="secondary"

@@ -62,13 +62,12 @@ export interface Competencia {
 // ---------------------------------------------------------------------------
 // ENT-TAXONOMY-TERM — vocabulário controlado
 // ---------------------------------------------------------------------------
-export type DimensaoTaxonomia =
-  | "categoria"
-  | "subcategoria"
-  | "objetivo"
-  | "natureza"
-  | "essencialidade"
-  | "tipo_de_ocorrência";
+/**
+ * Três dimensões de vocabulário controlado (ADR-003 consolidou de 6 para 3 +
+ * contexto). `contexto` NÃO é uma dimensão de taxonomia — é texto livre, nunca
+ * termo controlado (ver TAXONOMIA-INICIAL.md §1).
+ */
+export type DimensaoTaxonomia = "categoria" | "subcategoria" | "objetivo";
 
 export type StatusTermo = "ativo" | "desativado" | "proposto";
 
@@ -89,7 +88,6 @@ export interface TermoTaxonomia {
 export interface FornecedorPadronizado {
   id: string;
   nomeOficial: string;
-  essencialidadePadraoId?: string;
   categoriaDominanteId?: string;
   confianca: number;
   /** true = não força categoria única (comportamento contextual). */
@@ -224,14 +222,8 @@ export interface PerfilImportacao {
 // ENT-CLASSIFICATION-PROPOSAL — proposta de classificação da IA (imutável)
 // ---------------------------------------------------------------------------
 
-/** As seis dimensões estruturadas de classificação (D7: confiança por dimensão). */
-export type DimensaoClassificavel =
-  | "categoria"
-  | "subcategoria"
-  | "objetivo"
-  | "natureza"
-  | "essencialidade"
-  | "tipoOcorrencia";
+/** As três dimensões estruturadas de classificação (D7: confiança por dimensão). Consolidado de 6→3 pelo ADR-003. */
+export type DimensaoClassificavel = "categoria" | "subcategoria" | "objetivo";
 
 /** Referência a termo de taxonomia por dimensão (todas opcionais). */
 export type DimensoesClassificacao = Partial<Record<DimensaoClassificavel, string>>;
@@ -241,12 +233,15 @@ export interface PropostaClassificacao {
   lancamentoId: string;
   fornecedorSugeridoId?: string;
   dimensoes: DimensoesClassificacao;
-  contextoSugerido?: { tagId?: string; texto?: string };
+  /** Contexto é sempre texto livre, nunca termo de taxonomia (TAXONOMIA-INICIAL.md §1). */
+  contextoSugerido?: string;
   confiancaGeral: number;
   /** D7 — confiança por dimensão (0–1). */
   confiancaPorDimensao: Partial<Record<DimensaoClassificavel, number>>;
   /** D11 — nunca opcional. */
   justificativa: string;
+  /** "regra" (fornecedor padronizado/histórico) ou "llm" (fallback via API). */
+  origem: "regra" | "llm";
   regrasUtilizadasIds?: string[];
   exemplosSemelhantesIds?: string[];
   versaoClassificador: string;
@@ -269,7 +264,7 @@ export interface DecisaoClassificacao {
   id: string;
   lancamentoId: string;
   propostaAnteriorId?: string;
-  classificacaoConfirmada: DimensoesClassificacao & { fornecedorId?: string };
+  classificacaoConfirmada: DimensoesClassificacao & { fornecedorId?: string; contexto?: string };
   usuarioResponsavelId?: string;
   origemDaDecisao: OrigemDecisao;
   status: StatusDecisao;

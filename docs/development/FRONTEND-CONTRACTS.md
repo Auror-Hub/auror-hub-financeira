@@ -10,20 +10,11 @@ Consolidação da fase FE-5 ([`CONSTRUCTION-PLAN.md`](../CONSTRUCTION-PLAN.md)).
 | [`src/lib/domain/inbox.ts`](../../src/lib/domain/inbox.ts) | Conceitos de triagem da Caixa de Entrada: `TipoPendencia`, `StatusRevisaoLocal`, `ItemFila` (junção lançamento + proposta). |
 | [`src/lib/domain/competency.ts`](../../src/lib/domain/competency.ts) | View-model de detalhe de competência: `CompetenciaDetalhe`, `VersaoFechamento`, `DocumentoOrigemResumo`. |
 
-## ⚠️ Divergência conhecida e pendente — ver ADR-003
+## ✅ Divergência de 6→4 dimensões corrigida em BE-3
 
-Os três arquivos acima ainda refletem o modelo de **6 dimensões de classificação** (`categoria`, `subcategoria`, `objetivo`, `natureza`, `essencialidade`, `tipoOcorrencia`) e objetivos genéricos (`Pessoal`, `Família`, `Trabalho`, `Casa`, `Presente`). [ADR-003](../decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md) consolidou o modelo oficial em **4 dimensões** (`categoria`, `subcategoria`, `objetivo`, `contexto`) com 13 objetivos reais (ver [`TAXONOMIA-INICIAL.md`](../product/TAXONOMIA-INICIAL.md)).
+Os contratos originais refletiam o modelo de **6 dimensões de classificação** (`categoria`, `subcategoria`, `objetivo`, `natureza`, `essencialidade`, `tipoOcorrencia`) e objetivos genéricos (`Pessoal`, `Família`, `Trabalho`, `Casa`, `Presente`). [ADR-003](../decisions/ADR-003-CONTEXTO-FAMILIAR-E-TAXONOMIA.md) consolidou o modelo oficial em **3 dimensões de vocabulário controlado** (`categoria`, `subcategoria`, `objetivo`) + `contexto` (texto livre) — ver [`TAXONOMIA-INICIAL.md`](../product/TAXONOMIA-INICIAL.md) para os 18 grupos de categoria e os 13 objetivos reais.
 
-**Isto não foi corrigido no código ainda** (por decisão explícita — a correção foi adiada para BE-3, não bloqueia FE-4/FE-5). Antes de BE-3 usar estes contratos como base real, é preciso:
-
-1. Remover `natureza`/`essencialidade`/`tipoOcorrencia` de `DimensaoClassificavel`, `DimensoesClassificacao`, `PropostaClassificacao.confiancaPorDimensao` e `DecisaoClassificacao.classificacaoConfirmada` (`types.ts`).
-2. Adicionar um campo `contexto` próprio (texto livre) a `PropostaClassificacao` e `DecisaoClassificacao` — hoje só existe `contextoSugerido` na proposta.
-3. Atualizar `src/lib/mocks/taxonomy.ts` para os 13 objetivos reais e remover os termos de natureza/essencialidade/tipo_de_ocorrência.
-4. Atualizar `src/lib/mocks/inbox.ts` (propostas sintéticas) para as 4 dimensões.
-5. Atualizar `SuggestionBlock.tsx` (`DIMENSAO_LABEL`) para não listar as 3 dimensões removidas.
-6. Revisar `SessionContext.profileName` ("Pessoal" → algo que reflita o perfil familiar).
-
-Nenhuma tela quebra sem essa correção — os componentes leem `proposta.dimensoes` genericamente. É uma correção de dado/vocabulário, não de estrutura de componente.
+BE-3 corrigiu `types.ts` (removeu `natureza`/`essencialidade`/`tipoOcorrencia`, adicionou `contexto` a `PropostaClassificacao`/`DecisaoClassificacao`), removeu os mocks `taxonomy.ts`/`merchants.ts`/`inbox.ts` (substituídos por dado real: `taxonomia_termos`, `fornecedores_padronizados`, `classificacao_propostas`) e ajustou `SuggestionBlock.tsx` para as 3 dimensões + contexto.
 
 ## Convenções que a Etapa 2 deve preservar
 
