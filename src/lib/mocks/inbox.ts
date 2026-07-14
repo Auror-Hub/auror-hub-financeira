@@ -4,7 +4,6 @@
  * docs/development/SECURITY-AND-DATA.md.
  */
 import type { ItemFila } from "@/lib/domain/inbox";
-import { COMPETENCIA_ATUAL_ID } from "./dataset";
 
 const CARTAO_1 = "card-1";
 const CARTAO_2 = "card-2";
@@ -17,7 +16,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-1",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_1,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-03",
       fornecedorOriginal: "CORRIDA*RAPIDA APP",
       descricaoOriginal: "CORRIDA*RAPIDA APP SAO PAULO",
@@ -54,7 +53,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-2",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_1,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-07",
       fornecedorOriginal: "CORRIDA*RAPIDA APP",
       descricaoOriginal: "CORRIDA*RAPIDA APP SAO PAULO",
@@ -91,7 +90,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-3",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_1,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-12",
       fornecedorOriginal: "CORRIDA*RAPIDA APP",
       descricaoOriginal: "CORRIDA*RAPIDA APP SAO PAULO",
@@ -128,7 +127,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-4",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_2,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-05",
       fornecedorOriginal: "MERCADO HORIZONTE LTDA",
       descricaoOriginal: "MERCADO HORIZONTE LTDA",
@@ -163,7 +162,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-5",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_1,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-09",
       fornecedorOriginal: "SABOR EXPRESS DELIVERY",
       descricaoOriginal: "SABOR EXPRESS DELIVERY",
@@ -198,7 +197,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-6",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_2,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-02",
       fornecedorOriginal: "CLINICA SORRISO CLARO",
       descricaoOriginal: "CLINICA SORRISO CLARO ODONTO",
@@ -234,7 +233,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-7",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_1,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-15",
       fornecedorOriginal: "PAG*OFICINABELA",
       descricaoOriginal: "PAG*OFICINABELA SAO PAULO",
@@ -266,7 +265,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-8",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_2,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-20",
       fornecedorOriginal: "TELA NORTE STREAMING",
       descricaoOriginal: "TELA NORTE STREAMING BR",
@@ -301,7 +300,7 @@ export const ITENS_FILA: ItemFila[] = [
       id: "txn-9",
       loteImportacaoId: LOTE,
       cartaoId: CARTAO_2,
-      competenciaCalculadaId: COMPETENCIA_ATUAL_ID,
+      competenciaCalculada: "2026-06",
       data: "2026-06-20",
       fornecedorOriginal: "TELA NORTE STREAMING",
       descricaoOriginal: "TELA NORTE STREAMING BR",

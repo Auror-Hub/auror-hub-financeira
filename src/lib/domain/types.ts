@@ -108,7 +108,13 @@ export interface LancamentoBruto {
   id: string;
   loteImportacaoId: string;
   cartaoId: string;
-  competenciaCalculadaId: string;
+  /**
+   * Mês de ocorrência do gasto (AAAA-MM), não o vencimento da fatura
+   * (premissa #3 da Arquitetura Completa). Corrigido em BE-2: era
+   * `competenciaCalculadaId` (sugeria FK) na FE-2 — a tabela `competencias`
+   * real só existe a partir de BE-5, então isto é texto, não referência.
+   */
+  competenciaCalculada: AnoMes;
   data: DataISO;
   vencimento?: DataISO;
   fornecedorOriginal: string;
@@ -120,6 +126,94 @@ export interface LancamentoBruto {
   arquivoOrigemId: string;
   paginaOuPosicao?: string;
   identificadorDeduplicacao: string;
+}
+
+// ---------------------------------------------------------------------------
+// ENT-SOURCE-DOCUMENT, ENT-IMPORT-BATCH, ENT-IMPORT-EVENT,
+// ENT-POSSIBLE-DUPLICATE, ENT-IMPORT-PROFILE — domínio bruto (BE-2, ADR-002)
+// ---------------------------------------------------------------------------
+export type StatusProcessamentoDocumento =
+  | "recebido"
+  | "reconhecendo"
+  | "extraindo"
+  | "conciliando"
+  | "concluido"
+  | "divergencia"
+  | "falhou";
+
+export interface DocumentoOrigem {
+  id: string;
+  perfilId: string;
+  cartaoId: string;
+  nomeArquivo: string;
+  hash: string;
+  periodo?: { inicio?: DataISO; fim?: DataISO };
+  vencimento?: DataISO;
+  totalDeclarado?: Centavos;
+  dataEnvio: DataHoraISO;
+  statusProcessamento: StatusProcessamentoDocumento;
+  storagePath: string;
+  versaoImportador: string;
+}
+
+export interface LoteImportacao {
+  id: string;
+  documentoId: string;
+  iniciadoEm: DataHoraISO;
+  concluidoEm?: DataHoraISO;
+  status: "reconhecendo" | "extraindo" | "conciliando" | "concluido" | "falhou";
+  quantidadeExtraida: number;
+  totalExtraido: Centavos;
+  divergencia: Centavos;
+  versaoProcesso: string;
+}
+
+export interface EventoImportacao {
+  id: string;
+  loteId: string;
+  tipo: "reconhecimento" | "extracao" | "divergencia" | "duplicidade" | "linha_invalida" | "erro";
+  detalhe?: string;
+  criadoEm: DataHoraISO;
+}
+
+export interface PossivelDuplicata {
+  id: string;
+  lancamentoAId: string;
+  lancamentoBId: string;
+  motivo: string;
+  status: "pendente" | "confirmado_duplicado" | "confirmado_distinto";
+  criadoEm: DataHoraISO;
+}
+
+/**
+ * ENT-IMPORT-PROFILE (ADR-002) — mapeamento de colunas reutilizável por cartão.
+ * `modoValor='credito_debito'` cobre faturas com colunas separadas de
+ * crédito/débito (ex.: Porto Seguro) em vez de uma única coluna com sinal.
+ */
+export interface PerfilImportacao {
+  id: string;
+  perfilId: string;
+  cartaoId: string;
+  instituicao: string;
+  versaoFormato?: string;
+  tipoArquivo: "csv" | "xlsx";
+  aba?: string;
+  linhasParaPular: number;
+  delimitador: string;
+  codificacao: string;
+  formatoData: string;
+  formatoMonetario: "BR" | "US";
+  colunaData: string;
+  colunaDescricao: string;
+  modoValor: "unica" | "credito_debito";
+  colunaValor?: string;
+  colunaCredito?: string;
+  colunaDebito?: string;
+  colunaParcela?: string;
+  colunaMoeda?: string;
+  transformacoes?: Record<string, unknown>;
+  ultimaUtilizacao?: DataHoraISO;
+  criadoEm: DataHoraISO;
 }
 
 // ---------------------------------------------------------------------------
