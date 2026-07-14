@@ -22,8 +22,8 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Home", icon: Home, implemented: false },
-  { href: "/caixa-de-entrada", label: "Caixa de Entrada", icon: Inbox, implemented: false },
+  { href: "/", label: "Home", icon: Home, implemented: true },
+  { href: "/caixa-de-entrada", label: "Caixa de Entrada", icon: Inbox, implemented: true },
   { href: "/competencias", label: "Competências", icon: CalendarClock, implemented: false },
   { href: "/acervo", label: "Acervo", icon: Archive, implemented: false },
   { href: "/fornecedores", label: "Fornecedores", icon: Store, implemented: false },

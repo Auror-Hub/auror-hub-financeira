@@ -62,6 +62,8 @@ Fora do MVP: Open Finance, integração bancária automática, investimentos, co
 6. Rodar lint, typecheck, testes e build (quando aplicável).
 7. Revisar `git diff` antes de considerar o trabalho pronto.
 8. Atualizar documentação afetada pela mudança.
-9. Apresentar o resultado e aguardar instrução — não commitar nem enviar ao GitHub automaticamente.
+9. Apresentar o resultado (o que foi implementado, resultado de lint/typecheck/teste/build, o que foi verificado no browser quando aplicável) e aguardar o "ok" explícito de Victoria antes de commitar — nunca commitar automaticamente.
+10. Depois de um commit aprovado, dar `git push` automaticamente (padrão, sem pedir confirmação a cada vez — repositório solo, branch única, sem force-push). Isso é regra permanente; não se aplica a nenhuma outra ação de Git além de push de commits já aprovados (nada de force-push, reset, ou push para outra branch sem pedir).
+11. Não iniciar a próxima fase automaticamente após um commit/push — só avançar quando Victoria disser explicitamente para seguir.
 
 Se uma sessão for interrompida no meio de uma alteração, não reiniciar do zero por tentativa cega. Retomar com uma instrução curta indicando: arquivos já alterados, tarefa restante, e áreas que não precisam ser reanalisadas. Ver [`docs/development/WORKFLOW.md`](docs/development/WORKFLOW.md).
