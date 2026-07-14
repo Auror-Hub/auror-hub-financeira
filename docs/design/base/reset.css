@@ -1,0 +1,54 @@
+/* ============================================================
+   BASE RESET — Ecossistema Madan + Aurór
+   v4.0 · "Ecossistema Vivo"
+   ============================================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: var(--w-body);
+  color: var(--ink);
+  background-color: var(--page);
+  /* A whisper of natural morning light — warm honey top-right,
+     soft green bottom-left. Very low opacity; keeps the linen
+     surface alive without reading as a gradient panel. */
+  background-image:
+    radial-gradient(1200px 680px at 88% -10%, rgba(212, 134, 10, 0.06), transparent 60%),
+    radial-gradient(1000px 620px at 4% 110%, rgba(45, 168, 112, 0.05), transparent 60%);
+  background-attachment: fixed;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+}
+
+/* ── Typographic utilities ───────────────────────────────── */
+/* DM Mono is reserved for numeric values + date/time metadata. */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Eyebrow — uppercase label in the humanist UI font (NOT mono). */
+.eyebrow {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--w-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+@keyframes eco-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}

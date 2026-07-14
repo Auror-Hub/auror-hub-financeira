@@ -1,0 +1,31 @@
+/* ============================================================
+   TYPOGRAPHY — Ecossistema Madan + Aurór
+   v4.0 · "Ecossistema Vivo"
+   Plus Jakarta Sans everywhere — titles, labels, chips, nav,
+   eyebrows. DM Mono is reserved for numeric KPI values and
+   date/time metadata only (never general UI). No wide tracking
+   on running text; titles sit at 0 or slightly negative.
+   ============================================================ */
+:root {
+
+  /* Families */
+  --font-ui:      'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono:    'DM Mono', ui-monospace, 'Fira Mono', monospace;
+
+  /* Weights */
+  --w-body:     400;   /* @kind other */
+  --w-medium:   500;   /* @kind other */   /* labels, UI, eyebrows */
+  --w-semibold: 600;   /* @kind other */   /* section titles */
+  --w-bold:     700;   /* @kind other */   /* large KPI values */
+
+  /* Scale */
+  --text-xs:   10px;     /* layer chips, micro-labels */
+  --text-sm:   11.5px;   /* secondary UI text */
+  --text-base: 13px;     /* body / default */
+  --text-md:   14px;     /* inputs, search */
+  --text-lg:   16px;     /* card section titles */
+  --text-xl:   18px;     /* sub-headers */
+  --text-2xl:  22px;     /* page headers */
+  --text-kpi:  22px;     /* KPI values */
+}

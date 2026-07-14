@@ -1,0 +1,78 @@
+/* ============================================================
+   COLORS — Ecossistema Madan + Aurór
+   v4.0 · "Ecossistema Vivo: Terra, Natureza, Vida"
+   A bright-but-rich daylight palette — spring morning at a
+   science park: natural light, plants, stone, clean water.
+   Warm linen surfaces, warm-brown ink, and five LIVING layer
+   colours (vivid, warm, never neon, never dark). Token NAMES
+   are unchanged so every component keeps working.
+     indigo → ÁGUA      (azul tropical / céu mediterrâneo) · principal
+     green  → FLORESTA   (verde-esmeralda)                 · sucesso
+     gold   → MEL        (âmbar / luz de tarde)            · atenção
+     terra  → FLOR       (coral / flor silvestre)          · risco
+     slate  → NÉVOA      (pedra cinza-azulada)             · coordenação
+   ============================================================ */
+:root {
+
+  /* ── Superfícies / Surfaces — luz natural, quentes ───── */
+  --page:          #F4F1EC;   /* areia / linho quente */
+  --surface:       #FDFCF9;   /* off-white quente, com alma */
+  --surface-2:     #EDE9E1;   /* segunda camada — pedra clara */
+  --hover:         #EBE6DC;   /* hover suave */
+  --panel:         #F4F1EC;   /* secondary panel fill */
+
+  /* ── Tinta / Ink — preto quente, tinta real ──────────── */
+  --ink:           #1C1916;   /* quase preto, marrom-quente */
+  --ink-2:         #4A443C;   /* texto secundário, marrom médio */
+  --muted:         #8C8279;   /* texto muted, terra clara */
+  --faint:         #C4BFBA;   /* placeholders, divisores */
+
+  /* ── Bordas / Borders — quentes, não azuladas ────────── */
+  --line:          rgba(28, 25, 22, 0.07);   /* divisores internos */
+  --line-2:        rgba(28, 25, 22, 0.12);   /* bordas de cards */
+  --line-strong:   rgba(28, 25, 22, 0.20);   /* ênfase */
+
+  /* ── ÁGUA — índigo · principal · navegação · info ────── */
+  --indigo:        #4A6CF7;
+  --indigo-light:  #7B96F9;
+  --indigo-tint:   #EEF2FF;
+  --indigo-mid:    rgba(74, 108, 247, 0.15);
+  --indigo-shadow: rgba(74, 108, 247, 0.30);
+
+  /* ── FLORESTA — verde · Aurór · sucesso · concluído ──── */
+  --green:         #2DA870;
+  --green-light:   #4DC490;
+  --green-tint:    #EDFAF3;
+  --green-mid:     rgba(45, 168, 112, 0.14);
+  --green-shadow:  rgba(45, 168, 112, 0.28);
+
+  /* ── MEL — dourado · Madan · atenção · Dan ───────────── */
+  --gold:          #D4860A;
+  --gold-light:    #F0A52A;
+  --gold-tint:     #FEF6E4;
+  --gold-mid:      rgba(212, 134, 10, 0.14);
+
+  /* ── FLOR — terra · risco · urgente · alerta crítico ─── */
+  --terra:         #D94F3D;
+  --terra-light:   #F0705E;
+  --terra-tint:    #FEF0EE;
+  --terra-mid:     rgba(217, 79, 61, 0.12);
+  --terra-shadow:  rgba(217, 79, 61, 0.28);
+
+  /* ── NÉVOA — ardósia · Aurora · coordenação ──────────── */
+  /* lilás-pedra (glicínia) — neutro com vida, contraponto frio às cores quentes */
+  --slate:         #7A6CA8;
+  --slate-light:   #9D90C4;
+  --slate-tint:    #F1ECF9;
+  --slate-mid:     rgba(122, 108, 168, 0.16);
+
+  /* ── Semântica funcional / Functional aliases ────────── */
+  --ok:            var(--green);
+  --ok-tint:       var(--green-tint);
+  --warn:          var(--gold);
+  --warn-tint:     var(--gold-tint);
+  --risk:          var(--terra);
+  --risk-tint:     var(--terra-tint);
+  --info:          var(--indigo);
+  --info-tint:     var(--indigo-tint);
+}

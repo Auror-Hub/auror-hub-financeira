@@ -1,0 +1,19 @@
+<!-- @dsCard group="Spacing" viewport="700x160" name="Raio de canto" subtitle="tag 4 → card 12 → pill 100" -->
+<!DOCTYPE html>
+<html lang="pt"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { padding: 20px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .r { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .box { width: 64px; height: 56px; background: var(--indigo-tint); border: 1.5px solid var(--indigo); }
+  .lab { font-family: var(--font-mono); font-size: 9px; color: var(--muted); text-align: center; line-height: 1.4; }
+  .lab b { color: var(--ink-2); display: block; }
+</style></head>
+<body>
+  <div class="r"><div class="box" style="border-radius:var(--r-tag)"></div><span class="lab"><b>--r-tag</b>4px</span></div>
+  <div class="r"><div class="box" style="border-radius:var(--r-btn-sm)"></div><span class="lab"><b>--r-btn-sm</b>6px</span></div>
+  <div class="r"><div class="box" style="border-radius:var(--r-btn)"></div><span class="lab"><b>--r-btn</b>8px</span></div>
+  <div class="r"><div class="box" style="border-radius:var(--r-card)"></div><span class="lab"><b>--r-card</b>12px</span></div>
+  <div class="r"><div class="box" style="border-radius:var(--r-pill);width:84px"></div><span class="lab"><b>--r-pill</b>100px</span></div>
+</body></html>
+<!-- theme:v4 refresh -->

@@ -1,0 +1,22 @@
+<!-- @dsCard group="Type" viewport="700x230" name="Escala tipográfica" subtitle="xs 10 → 2xl 22 · base 13px" -->
+<!DOCTYPE html>
+<html lang="pt"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { padding: 20px; }
+  .row { display: flex; align-items: baseline; gap: 14px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: none; }
+  .tok { font-family: var(--font-mono); font-size: 10px; color: var(--muted); width: 96px; flex-shrink: 0; }
+  .px { font-family: var(--font-mono); font-size: 10px; color: var(--faint); width: 48px; flex-shrink: 0; text-align: right; }
+  .sample { color: var(--ink); font-weight: 500; }
+</style></head>
+<body>
+  <div class="row"><span class="tok">--text-2xl</span><span class="px">22</span><span class="sample" style="font-size:22px;letter-spacing:-0.02em">Cabeçalho de página</span></div>
+  <div class="row"><span class="tok">--text-xl</span><span class="px">18</span><span class="sample" style="font-size:18px">Subcabeçalho</span></div>
+  <div class="row"><span class="tok">--text-lg</span><span class="px">16</span><span class="sample" style="font-size:16px">Título de secção</span></div>
+  <div class="row"><span class="tok">--text-md</span><span class="px">14</span><span class="sample" style="font-size:14px;font-weight:400">Campos e pesquisa</span></div>
+  <div class="row"><span class="tok">--text-base</span><span class="px">13</span><span class="sample" style="font-size:13px;font-weight:400">Texto de corpo padrão</span></div>
+  <div class="row"><span class="tok">--text-sm</span><span class="px">11.5</span><span class="sample" style="font-size:11.5px;font-weight:400">Texto secundário</span></div>
+  <div class="row"><span class="tok">--text-xs</span><span class="px">10</span><span class="sample" style="font-size:10px;font-weight:400">Micro-rótulos</span></div>
+</body></html>
+<!-- theme:v4 refresh -->

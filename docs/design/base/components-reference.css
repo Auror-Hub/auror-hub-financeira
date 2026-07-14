@@ -1,0 +1,661 @@
+/* ============================================================
+   COMPONENTS CSS — Ecossistema Madan + Aurór
+   Plain-CSS class versions of the brand's primitives. The React
+   components reference these same tokens; use these classes when
+   building static HTML (slides, mocks) without the JS bundle.
+   ============================================================ */
+
+/* ── APP SHELL ───────────────────────────────────────────── */
+.eco-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page);
+}
+
+/* ── ICON SIDEBAR ────────────────────────────────────────── */
+.eco-sidebar {
+  width: var(--sidebar-width);
+  background: var(--page);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.eco-logo {
+  width: 30px;
+  height: 30px;
+  background: var(--indigo);
+  border-radius: var(--r-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-logo);
+  cursor: pointer;
+}
+.eco-nav-sep {
+  width: 24px;
+  height: 1px;
+  background: var(--line-2);
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+.eco-nav-item {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  position: relative;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+  flex-shrink: 0;
+}
+.eco-nav-item:hover { background: var(--hover); color: var(--ink-2); }
+.eco-nav-item.active { background: var(--indigo-tint); color: var(--indigo); }
+.eco-nav-item svg, .eco-nav-item i { font-size: 17px; }
+.eco-nav-orb {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  border: 1.5px solid var(--page);
+}
+
+/* ── COLLAPSIBLE RAIL — icon-only ⇄ expanded with labels ──── */
+.eco-rail {
+  align-items: stretch;
+  padding: 12px 0;
+  gap: 0;
+  transition: width var(--dur-slow) var(--ease-out);
+  overflow: hidden;
+}
+.eco-rail.collapsed { width: var(--sidebar-width); align-items: center; }
+.eco-rail.expanded  { width: 224px; }
+
+.eco-rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 11px 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  min-height: 42px;
+}
+.eco-rail.collapsed .eco-rail-brand { justify-content: center; padding: 0 0 12px; }
+
+.eco-rail-list { display: flex; flex-direction: column; gap: 2px; flex: 1; padding: 0 8px; }
+.eco-rail.collapsed .eco-rail-list { padding: 0; align-items: center; }
+
+.eco-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 36px;
+  padding: 0 11px;
+  border-radius: var(--r-icon);
+  cursor: pointer;
+  color: var(--muted);
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+  white-space: nowrap;
+}
+.eco-rail.collapsed .eco-rail-item { width: 36px; padding: 0; justify-content: center; }
+.eco-rail-item:hover { background: var(--hover); color: var(--ink-2); }
+.eco-rail-item.active { background: var(--indigo-tint); color: var(--indigo); }
+.eco-rail-item.active .eco-rail-label { font-weight: 600; }
+.eco-rail-ico { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.eco-rail-ico svg, .eco-rail-ico i { width: 17px; height: 17px; }
+.eco-rail-label { font-size: 12.5px; font-weight: 500; }
+
+.eco-rail-user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 6px 8px 0;
+  padding: 7px 8px;
+  border-radius: var(--r-icon);
+  cursor: pointer;
+  transition: background var(--dur-fast) ease;
+}
+.eco-rail-user:hover { background: var(--hover); }
+.eco-rail-user.collapsed { justify-content: center; margin: 6px auto 0; padding: 4px; }
+
+/* ── TOPBAR ──────────────────────────────────────────────── */
+.eco-topbar {
+  height: var(--topbar-height);
+  background: var(--page);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+.eco-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  max-width: 260px;
+  cursor: text;
+}
+.eco-search i, .eco-search svg { font-size: 14px; color: var(--muted); }
+.eco-search input {
+  border: none;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+}
+.eco-search input::placeholder { color: var(--muted); }
+.eco-topbar-div {
+  width: 1px;
+  height: 18px;
+  background: var(--line-2);
+  margin: 0 10px;
+  flex-shrink: 0;
+}
+.eco-ticker { display: flex; align-items: center; gap: 5px; padding: 0 9px; cursor: default; }
+.eco-ticker-label {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.eco-ticker-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.eco-clock {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  padding-left: 12px;
+  border-left: 1px solid var(--line-2);
+  margin-left: 12px;
+}
+
+/* ── ACTION BAR ──────────────────────────────────────────── */
+.eco-action-bar {
+  height: var(--actionbar-height);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
+  border-top: 1px solid var(--line-2);
+  background: var(--surface);
+  box-shadow: 0 -1px 0 var(--line), 0 -4px 16px rgba(60, 45, 30, 0.05);
+  flex-shrink: 0;
+}
+.eco-action-sep { width: 1px; height: 20px; background: var(--line-2); margin: 0 2px; flex-shrink: 0; }
+
+/* ── CARDS ───────────────────────────────────────────────── */
+.eco-card {
+  background: var(--surface);
+  border-radius: var(--r-card);
+  border: 1px solid var(--line-2);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+.eco-card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
+.eco-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.eco-card-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.eco-card-count { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); margin-left: auto; }
+.eco-card-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--indigo);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: var(--r-btn-sm);
+  transition: background var(--dur-fast) ease;
+  text-decoration: none;
+}
+.eco-card-action:hover { background: var(--indigo-tint); }
+.eco-card.layer-madan  { border-left: 3px solid var(--gold); }
+.eco-card.layer-auror  { border-left: 3px solid var(--green); }
+.eco-card.layer-aurora { border-left: 3px solid var(--slate); }
+.eco-card.layer-eco    { border-left: 3px solid var(--indigo); }
+.eco-card.layer-risk   { border-left: 3px solid var(--terra); }
+
+/* ── KPI STRIP ───────────────────────────────────────────── */
+.eco-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line-2);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-card);
+}
+.eco-kpi { background: var(--surface); padding: 11px 14px; transition: background var(--dur-fast) ease; cursor: default; }
+.eco-kpi:hover { background: var(--hover); }
+.eco-kpi-label {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.eco-kpi-value {
+  font-family: var(--font-display);
+  font-size: var(--text-kpi);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.eco-kpi-hint { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+/* ── BUTTONS ─────────────────────────────────────────────── */
+.btn-primary, .btn-success, .btn-danger, .btn-secondary, .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-btn);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: none;
+  transition: background var(--dur-fast) ease, box-shadow var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+.btn-primary { background: var(--indigo); color: white; box-shadow: var(--shadow-btn-indigo); }
+.btn-primary:hover { background: var(--indigo-light); box-shadow: var(--shadow-btn-indigo-hover); transform: translateY(-1px); }
+.btn-primary:active { transform: scale(0.97); }
+
+.btn-success { background: var(--green); color: white; box-shadow: var(--shadow-btn-green); }
+.btn-success:hover { background: var(--green-light); box-shadow: var(--shadow-btn-green-hover); transform: translateY(-1px); }
+.btn-success:active { transform: scale(0.97); }
+
+.btn-danger { background: var(--terra); color: white; box-shadow: var(--shadow-btn-terra); }
+.btn-danger:hover { background: var(--terra-light); transform: translateY(-1px); }
+.btn-danger:active { transform: scale(0.97); }
+
+.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  box-shadow: 0 1px 2px rgba(60, 45, 30, 0.06);
+}
+.btn-secondary:hover { border-color: var(--line-strong); background: var(--surface-2); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(60, 45, 30, 0.10); }
+.btn-secondary:active { transform: scale(0.97); }
+
+.btn-ghost { background: transparent; color: var(--ink-2); font-weight: 500; border: 1px solid transparent; }
+.btn-ghost:hover { color: var(--ink); background: var(--surface-2); }
+
+.btn-sm { height: 26px; padding: 0 10px; font-size: 11.5px; border-radius: var(--r-btn-sm); }
+
+/* ── VIEW GROUP ──────────────────────────────────────────── */
+.eco-view-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface-2);
+  border-radius: var(--r-icon);
+  padding: 2px;
+}
+.eco-view-btn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  transition: all var(--dur-fast) ease;
+}
+.eco-view-btn.active { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(60, 45, 30, 0.10); }
+
+/* ── BADGES & CHIPS ──────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.badge-slate  { background: var(--slate-tint);  color: var(--slate); }
+.badge-indigo { background: var(--indigo-tint); color: var(--indigo); }
+.badge-green  { background: var(--green-tint);  color: var(--green); }
+.badge-gold   { background: var(--gold-tint);   color: var(--gold); }
+.badge-terra  { background: var(--terra-tint);  color: var(--terra); }
+
+.layer-chip {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  padding: 2px 7px;
+  border-radius: var(--r-tag);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.layer-chip.madan  { background: var(--gold-tint);   color: var(--gold); }
+.layer-chip.auror  { background: var(--green-tint);  color: var(--green); }
+.layer-chip.aurora { background: var(--slate-tint);  color: var(--slate); }
+.layer-chip.eco    { background: var(--indigo-tint); color: var(--indigo); }
+
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.status-dot::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-dot.ok    { color: var(--green); }
+.status-dot.warn  { color: var(--gold); }
+.status-dot.risk  { color: var(--terra); }
+.status-dot.muted { color: var(--muted); }
+
+/* ── TASK LIST ───────────────────────────────────────────── */
+.eco-task {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--dur-fast) ease;
+}
+.eco-task:last-child { border-bottom: none; }
+.eco-task:hover { background: var(--hover); }
+.eco-checkbox {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1.5px solid var(--faint);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: white;
+  cursor: pointer;
+  transition: all var(--dur-base) ease;
+  background: transparent;
+}
+.eco-checkbox.checked { background: var(--green); border-color: var(--green); }
+.eco-task-text { flex: 1; font-size: 12.5px; color: var(--ink); }
+.eco-task-text.done { text-decoration: line-through; color: var(--muted); }
+
+/* ── SIGNAL ──────────────────────────────────────────────── */
+.eco-signal {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--dur-fast) ease;
+}
+.eco-signal:last-child { border-bottom: none; }
+.eco-signal:hover { background: var(--hover); }
+.eco-signal-bar { width: 2.5px; border-radius: 2px; flex-shrink: 0; align-self: stretch; min-height: 30px; }
+.eco-signal-text { font-size: 12px; line-height: 1.5; color: var(--ink-2); flex: 1; }
+.eco-signal-meta { font-family: var(--font-mono); font-size: 9px; color: var(--muted); flex-shrink: 0; margin-top: 2px; }
+
+/* ── COPILOTO / AGENTS ───────────────────────────────────── */
+.eco-agent-row {
+  display: flex;
+  gap: 9px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  transition: background var(--dur-fast) ease;
+}
+.eco-agent-row:last-child { border-bottom: none; }
+.eco-agent-row:hover { background: var(--hover); }
+.eco-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-avatar);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  flex-shrink: 0;
+  border: 1px solid;
+}
+.eco-avatar.aurora { background: var(--slate-tint); color: var(--slate-light); border-color: var(--slate-mid); }
+.eco-avatar.dan    { background: var(--gold-tint);  color: var(--gold-light);  border-color: var(--gold-mid); }
+.eco-bubble { font-size: 12px; line-height: 1.6; color: var(--ink-2); flex: 1; }
+
+.eco-copiloto-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  height: 26px;
+  background: var(--indigo-tint);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  border: 1px solid var(--indigo-mid);
+  transition: all var(--dur-fast) ease;
+}
+.eco-copiloto-chip:hover { background: var(--indigo); border-color: var(--indigo); }
+.eco-copiloto-chip:hover .eco-copiloto-label,
+.eco-copiloto-chip:hover .eco-copiloto-dot { color: white; background: rgba(255,255,255,0.5); }
+.eco-copiloto-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--indigo); animation: eco-breathe 2.4s ease-in-out infinite; }
+.eco-copiloto-label { font-size: var(--text-sm); font-weight: 500; color: var(--indigo); letter-spacing: 0.02em; }
+
+/* ── INPUTS ──────────────────────────────────────────────── */
+.eco-input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--r-input);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+  width: 100%;
+}
+.eco-input::placeholder { color: var(--muted); }
+.eco-input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px var(--indigo-mid); }
+
+/* ── MODULE ACCENT LINE ──────────────────────────────────── */
+.eco-module-line { height: 1.5px; opacity: 0.5; flex-shrink: 0; }
+.eco-module-line.eco    { background: var(--indigo); }
+.eco-module-line.madan  { background: var(--gold); }
+.eco-module-line.auror  { background: var(--green); }
+.eco-module-line.aurora { background: var(--slate); }
+.eco-module-line.risk   { background: var(--terra); }
+
+/* ── DRAWER / SHEET ──────────────────────────────────────── */
+.eco-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 420px;
+  background: var(--surface);
+  border-left: 1px solid var(--line-2);
+  box-shadow: var(--shadow-overlay);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+.eco-drawer.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+
+/* ── COMMAND PALETTE ─────────────────────────────────────── */
+.eco-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 25, 22, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 120px;
+}
+.eco-palette {
+  width: 560px;
+  background: var(--surface);
+  border-radius: var(--r-card);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+}
+.eco-palette-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.eco-palette-input input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--ink);
+  outline: none;
+}
+.eco-palette-input input::placeholder { color: var(--muted); }
+
+/* ── EMPTY STATE ─────────────────────────────────────────── */
+.eco-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 8px;
+  text-align: center;
+}
+.eco-empty-text { font-size: var(--text-base); color: var(--muted); }
+
+/* ── SOLICITAÇÃO — "Depende de Você" / Inbox Operacional ───
+   The core operational object. NOT a task — it is something that
+   depends on a person for the flow to continue. Operable: carries
+   a type, context, who→who, deadline, and ACTION buttons. ───── */
+.eco-solicitacao {
+  display: flex;
+  gap: 11px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  transition: background var(--dur-fast) ease;
+}
+.eco-solicitacao:last-child { border-bottom: none; }
+.eco-solicitacao:hover { background: var(--hover); }
+.eco-solicitacao.urgent { background: var(--terra-tint); }
+.eco-solicitacao.urgent:hover { background: var(--terra-tint); }
+
+.eco-sol-type {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.eco-sol-type svg, .eco-sol-type i { width: 15px; height: 15px; }
+.eco-sol-type.aprovacao { background: var(--gold-tint);   color: var(--gold); }
+.eco-sol-type.validacao { background: var(--green-tint);  color: var(--green); }
+.eco-sol-type.resolucao { background: var(--terra-tint);  color: var(--terra); }
+.eco-sol-type.handoff   { background: var(--slate-tint);  color: var(--slate); }
+.eco-sol-type.decisao   { background: var(--indigo-tint); color: var(--indigo); }
+.eco-sol-type.revisao   { background: var(--slate-tint);  color: var(--slate); }
+.eco-sol-type.info      { background: var(--surface-2);   color: var(--muted); }
+
+.eco-sol-body { flex: 1; min-width: 0; }
+.eco-sol-top { display: flex; align-items: center; gap: 7px; margin-bottom: 2px; }
+.eco-sol-kind {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.eco-sol-title { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+.eco-sol-context { font-size: 11.5px; color: var(--ink-2); margin-top: 2px; line-height: 1.45; }
+.eco-sol-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.eco-sol-meta .who { display: inline-flex; align-items: center; gap: 4px; }
+.eco-sol-meta .dot-sep { width: 2.5px; height: 2.5px; border-radius: 50%; background: var(--faint); }
+.eco-sol-prazo { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.eco-sol-prazo.late { color: var(--terra); font-weight: 500; }
+
+.eco-sol-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  align-self: center;
+  align-items: stretch;
+  min-width: 116px;
+}
+.eco-sol-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  align-self: flex-start;
+}
+

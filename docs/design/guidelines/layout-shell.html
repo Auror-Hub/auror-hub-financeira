@@ -1,0 +1,22 @@
+<!-- @dsCard group="Spacing" viewport="700x180" name="Estrutura do shell" subtitle="rail 52 · topbar 42 · barra de ação 50" -->
+<!DOCTYPE html>
+<html lang="pt"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { padding: 18px; }
+  .shell { display: grid; grid-template-columns: 52px 1fr; grid-template-rows: 42px 1fr 50px; height: 144px; border-radius: 10px; overflow: hidden; box-shadow: var(--shadow-card); font-family: var(--font-mono); font-size: 9px; color: var(--muted); }
+  .rail { grid-row: 1 / 4; background: var(--surface); border-right: 1px solid var(--line); display: flex; align-items: flex-start; justify-content: center; padding-top: 10px; }
+  .dot { width: 30px; height: 30px; border-radius: 8px; background: var(--indigo); box-shadow: var(--shadow-logo); }
+  .top { background: var(--surface); border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 12px; }
+  .body { background: var(--page); display: flex; align-items: center; padding: 0 12px; }
+  .act { background: var(--surface); border-top: 1px solid var(--line-2); display: flex; align-items: center; padding: 0 12px; }
+</style></head>
+<body>
+<div class="shell">
+  <div class="rail"><div class="dot"></div></div>
+  <div class="top">topbar · 42px</div>
+  <div class="body">content · max 1280px · rail 52px</div>
+  <div class="act">action bar · 50px</div>
+</div>
+</body></html>
+<!-- theme:v4 refresh -->

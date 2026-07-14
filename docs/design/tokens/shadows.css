@@ -1,0 +1,39 @@
+/* ============================================================
+   SHADOWS & MOTION — Ecossistema Madan + Aurór
+   v4.0 · "Ecossistema Vivo"
+   Natural, warm shadows tinted with earth-brown (rgba(60,45,30))
+   plus a hairline ring for crisp edges on the linen surfaces.
+   Solid buttons carry a soft single-colour drop — no gradients,
+   no neon glow, no inset highlight. Motion unchanged.
+   ============================================================ */
+:root {
+
+  /* ── Shadows — natural & warm ─────────────────────────── */
+  --shadow-card:
+    0 1px 3px rgba(60, 45, 30, 0.08),
+    0 0 0 1px rgba(60, 45, 30, 0.06);
+
+  --shadow-card-hover:
+    0 4px 16px rgba(60, 45, 30, 0.12),
+    0 0 0 1px rgba(60, 45, 30, 0.08);
+
+  /* Solid coloured buttons — soft single-colour drop */
+  --shadow-btn-indigo:       0 2px 8px rgba(74, 108, 247, 0.30);
+  --shadow-btn-indigo-hover: 0 4px 14px rgba(74, 108, 247, 0.38);
+  --shadow-btn-green:        0 2px 8px rgba(45, 168, 112, 0.28);
+  --shadow-btn-green-hover:  0 4px 14px rgba(45, 168, 112, 0.36);
+  --shadow-btn-terra:        0 2px 8px rgba(217, 79, 61, 0.28);
+
+  --shadow-overlay:  0 8px 32px rgba(28, 25, 22, 0.18), 0 2px 8px rgba(28, 25, 22, 0.12);
+  --shadow-popover:  0 4px 16px rgba(60, 45, 30, 0.12), 0 1px 3px rgba(60, 45, 30, 0.08);
+  --shadow-logo:     0 2px 8px rgba(74, 108, 247, 0.25);
+
+  /* ── Motion ───────────────────────────────────────────── */
+  /* expressive settle */
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  /* slight overshoot */
+  --ease-snap:  cubic-bezier(0.34, 1.2, 0.64, 1); /* @kind other */
+  --dur-fast:   80ms;   /* @kind other */
+  --dur-base:   150ms;  /* @kind other */
+  --dur-slow:   220ms;  /* @kind other */
+}

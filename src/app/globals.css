@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+/*
+  Tokens da Hub Financeira — adaptados de docs/design/ conforme
+  docs/design/HUB-FINANCEIRA-DESIGN-ADAPTATION.md. Valores de cor/raio/sombra
+  preservados da referência visual; nomes e significado são próprios da Hub.
+  Paleta bruta fica em --palette-* para não colidir com os nomes de token
+  --color-* que o Tailwind v4 usa para gerar as classes utilitárias.
+*/
+:root {
+  --palette-page: #f4f1ec;
+  --palette-surface: #fdfcf9;
+  --palette-surface-2: #ede9e1;
+  --palette-hover: #ebe6dc;
+  --palette-ink: #1c1916;
+  --palette-ink-2: #4a443c;
+  --palette-muted: #8c8279;
+  --palette-faint: #c4bfba;
+
+  --palette-indigo: #4a6cf7;
+  --palette-indigo-light: #7b96f9;
+  --palette-indigo-tint: #eef2ff;
+  --palette-green: #2da870;
+  --palette-green-light: #4dc490;
+  --palette-green-tint: #edfaf3;
+  --palette-gold: #d4860a;
+  --palette-gold-light: #f0a52a;
+  --palette-gold-tint: #fef6e4;
+  --palette-terra: #d94f3d;
+  --palette-terra-light: #f0705e;
+  --palette-terra-tint: #fef0ee;
+  --palette-slate: #7a6ca8;
+  --palette-slate-light: #9d90c4;
+  --palette-slate-tint: #f1ecf9;
+
+  /* layout — dimensões fixas de shell, não geram utilitário Tailwind */
+  --sidebar-width: 52px;
+  --topbar-height: 42px;
+  --actionbar-height: 50px;
+  --content-max: 1280px;
+
+  /* movimento */
+  --dur-fast: 80ms;
+  --dur-base: 150ms;
+  --dur-slow: 220ms;
+}
+
+@theme inline {
+  /* paleta bruta (usada diretamente em Badge/StatusDot tonais) */
+  --color-indigo: var(--palette-indigo);
+  --color-indigo-light: var(--palette-indigo-light);
+  --color-indigo-tint: var(--palette-indigo-tint);
+  --color-green: var(--palette-green);
+  --color-green-light: var(--palette-green-light);
+  --color-green-tint: var(--palette-green-tint);
+  --color-gold: var(--palette-gold);
+  --color-gold-light: var(--palette-gold-light);
+  --color-gold-tint: var(--palette-gold-tint);
+  --color-terra: var(--palette-terra);
+  --color-terra-light: var(--palette-terra-light);
+  --color-terra-tint: var(--palette-terra-tint);
+  --color-slate: var(--palette-slate);
+  --color-slate-light: var(--palette-slate-light);
+  --color-slate-tint: var(--palette-slate-tint);
+
+  /* superfícies e texto */
+  --color-page: var(--palette-page);
+  --color-surface-primary: var(--palette-surface);
+  --color-surface-secondary: var(--palette-surface-2);
+  --color-hover: var(--palette-hover);
+
+  --color-text-primary: var(--palette-ink);
+  --color-text-secondary: var(--palette-ink-2);
+  --color-text-muted: var(--palette-muted);
+  --color-text-placeholder: var(--palette-faint);
+
+  --color-border-subtle: rgb(28 25 22 / 0.07);
+  --color-border-default: rgb(28 25 22 / 0.12);
+  --color-border-strong: rgb(28 25 22 / 0.2);
+
+  /* ação */
+  --color-action-primary: var(--palette-indigo);
+  --color-action-primary-hover: var(--palette-indigo-light);
+  --color-action-on-primary: #ffffff;
+
+  /* estado */
+  --color-state-success: var(--palette-green);
+  --color-state-success-tint: var(--palette-green-tint);
+  --color-state-warning: var(--palette-gold);
+  --color-state-warning-tint: var(--palette-gold-tint);
+  --color-state-danger: var(--palette-terra);
+  --color-state-danger-tint: var(--palette-terra-tint);
+  --color-state-neutral: var(--palette-slate);
+  --color-state-neutral-tint: var(--palette-slate-tint);
+
+  /* inteligência sugerida — nunca deve se confundir com ação ou estado */
+  --color-suggestion: var(--palette-slate);
+  --color-suggestion-tint: var(--palette-slate-tint);
+  --color-suggestion-border: var(--palette-slate-light);
+
+  /* tipografia */
+  --font-ui: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, "Fira Mono", monospace;
+
+  --text-xs: 0.625rem;
+  --text-sm: 0.71875rem;
+  --text-base: 0.8125rem;
+  --text-md: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-kpi: 1.375rem;
+
+  /* raio */
+  --radius-card: 12px;
+  --radius-btn: 8px;
+  --radius-btn-sm: 6px;
+  --radius-input: 8px;
+  --radius-pill: 100px;
+  --radius-tag: 4px;
+  --radius-icon: 8px;
+  --radius-avatar: 6px;
+
+  /* sombra */
+  --shadow-card: 0 1px 3px rgb(60 45 30 / 0.08), 0 0 0 1px rgb(60 45 30 / 0.06);
+  --shadow-card-hover: 0 4px 16px rgb(60 45 30 / 0.12), 0 0 0 1px rgb(60 45 30 / 0.08);
+  --shadow-overlay: 0 8px 32px rgb(28 25 22 / 0.18), 0 2px 8px rgb(28 25 22 / 0.12);
+  --shadow-popover: 0 4px 16px rgb(60 45 30 / 0.12), 0 1px 3px rgb(60 45 30 / 0.08);
+
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snap: cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+/*
+  MVP não implementa tema escuro — a referência visual descreve uma única
+  linguagem "daylight", sem contraparte escura definida. Decisão deliberada,
+  não uma lacuna: revisitar se/quando fizer sentido para o produto.
+*/
+body {
+  background: var(--palette-page);
+  color: var(--palette-ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+}
+
+.eyebrow {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--palette-muted);
+}
+
+.font-mono-nums {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

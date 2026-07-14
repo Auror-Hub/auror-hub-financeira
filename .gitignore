@@ -1,0 +1,61 @@
+# Variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*
+*secret*
+
+# Dependências
+node_modules/
+.pnpm-store/
+
+# Build e cache
+.next/
+out/
+dist/
+build/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Documentos e dados financeiros reais — nunca versionados
+*.pdf
+*.csv
+*.xls
+*.xlsx
+/faturas/
+/documentos/
+/dados-privados/
+/private-data/
+**/fixtures/real/
+**/dados-reais/
+
+# Dumps e exports de banco
+*.sql
+*.dump
+supabase/.temp/
+supabase/.branches/
+
+# Arquivos temporários e de teste locais
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# Sistema operacional / editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# Testes
+coverage/

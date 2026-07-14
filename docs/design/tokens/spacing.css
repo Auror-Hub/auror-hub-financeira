@@ -1,0 +1,24 @@
+/* ============================================================
+   SPACING, RADIUS & LAYOUT — Ecossistema Madan + Aurór
+   Compact, grid-aligned. Radii are modest — cards 12px,
+   buttons 8px, pills fully round. Layout tokens describe the
+   app shell (52px icon rail, 42px topbar, 50px action bar).
+   ============================================================ */
+:root {
+
+  /* ── Radius ───────────────────────────────────────────── */
+  --r-card:    12px;
+  --r-btn:      8px;
+  --r-btn-sm:   6px;
+  --r-input:    8px;
+  --r-pill:   100px;
+  --r-tag:      4px;
+  --r-icon:     8px;
+  --r-avatar:   6px;
+
+  /* ── Layout / Shell ───────────────────────────────────── */
+  --sidebar-width:    52px;
+  --topbar-height:    42px;
+  --actionbar-height: 50px;
+  --content-max:    1280px;
+}

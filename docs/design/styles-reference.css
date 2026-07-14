@@ -1,0 +1,19 @@
+/* ============================================================
+   ECOSSISTEMA MADAN + AURÓR — Design System v2.0
+   Root stylesheet. Consumers link this single file; it reaches
+   every token, font-face, reset, and component-class stylesheet.
+   Keep this file as @import lines only.
+   ============================================================ */
+
+/* Fonts (declares the webfonts) */
+@import url('tokens/fonts.css');
+
+/* Foundations / tokens */
+@import url('tokens/colors.css');
+@import url('tokens/typography.css');
+@import url('tokens/spacing.css');
+@import url('tokens/shadows.css');
+
+/* Base layer */
+@import url('base/reset.css');
+@import url('base/components.css');
