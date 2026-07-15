@@ -104,7 +104,8 @@ export interface FornecedorPadronizado {
 // ---------------------------------------------------------------------------
 export interface LancamentoBruto {
   id: string;
-  loteImportacaoId: string;
+  /** Ausente quando origem="manual" — não existe lote/documento pra lançamento cadastrado direto (BE-4). */
+  loteImportacaoId?: string;
   cartaoId: string;
   /**
    * Mês de ocorrência do gasto (AAAA-MM), não o vencimento da fatura
@@ -121,9 +122,12 @@ export interface LancamentoBruto {
   parcelaAtual?: number;
   totalParcelas?: number;
   moeda: string;
-  arquivoOrigemId: string;
+  /** Ausente quando origem="manual" — não existe documento de origem pra lançamento cadastrado direto (BE-4). */
+  arquivoOrigemId?: string;
   paginaOuPosicao?: string;
   identificadorDeduplicacao: string;
+  /** importado: veio de upload de fatura. manual: cadastrado diretamente (BE-4). */
+  origem: "importado" | "manual";
 }
 
 // ---------------------------------------------------------------------------
@@ -270,6 +274,46 @@ export interface DecisaoClassificacao {
   status: StatusDecisao;
   versao: number;
   data: DataHoraISO;
+}
+
+// ---------------------------------------------------------------------------
+// ENT-REVIEW-EVENT — evento de revisão (append-only)
+// ---------------------------------------------------------------------------
+export type TipoEventoRevisao = "confirmou" | "alterou" | "contexto" | "exceção" | "rejeitou fornecedor" | "reabriu";
+
+export interface EventoRevisao {
+  id: string;
+  lancamentoId: string;
+  tipo: TipoEventoRevisao;
+  usuarioId: string;
+  criadoEm: DataHoraISO;
+}
+
+// ---------------------------------------------------------------------------
+// ENT-EXCEPTION — exceção registrada (nunca deletada)
+// ---------------------------------------------------------------------------
+export interface Excecao {
+  id: string;
+  lancamentoId: string;
+  regraRelacionadaId?: string;
+  motivo: string;
+  criadoEm: DataHoraISO;
+}
+
+// ---------------------------------------------------------------------------
+// ENT-AUDIT-EVENT — trilha de auditoria (append-only, RUL-10)
+// ---------------------------------------------------------------------------
+export type TipoEventoAuditoria = "criação" | "alteração" | "decisão" | "fechamento" | "reabertura" | "execução de regra";
+
+export interface EventoAuditoria {
+  id: string;
+  entidadeRelacionadaTipo: string;
+  entidadeRelacionadaId: string;
+  tipoEvento: TipoEventoAuditoria;
+  ator: string;
+  versaoMotor?: string;
+  detalhe?: Record<string, unknown>;
+  criadoEm: DataHoraISO;
 }
 
 // ---------------------------------------------------------------------------

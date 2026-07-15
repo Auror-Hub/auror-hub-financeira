@@ -1,5 +1,5 @@
 import { Layers } from "lucide-react";
-import type { ItemFila, StatusRevisaoLocal } from "@/lib/domain/inbox";
+import type { ItemFila } from "@/lib/domain/inbox";
 import { formatBRL, formatData } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
@@ -16,23 +16,19 @@ const PENDENCIA_TONE: Record<string, BadgeTone> = {
 
 export interface ReviewCardProps {
   item: ItemFila;
-  status: StatusRevisaoLocal;
   rotulos: Record<string, string>;
   onAbrir: () => void;
   onConfirmar: () => void;
 }
 
-export function ReviewCard({ item, status, rotulos, onAbrir, onConfirmar }: ReviewCardProps) {
+export function ReviewCard({ item, rotulos, onAbrir, onConfirmar }: ReviewCardProps) {
   const { lancamento, proposta } = item;
   const fornecedor = (proposta.fornecedorSugeridoId && rotulos[proposta.fornecedorSugeridoId]) || item.fornecedorNomeOriginal;
   const categoria = proposta.dimensoes.categoria ? rotulos[proposta.dimensoes.categoria] : undefined;
   const objetivo = proposta.dimensoes.objetivo ? rotulos[proposta.dimensoes.objetivo] : undefined;
-  const decidido = status !== "pendente";
 
   return (
-    <div
-      className={`flex flex-col gap-3 rounded-card bg-surface-primary p-4 shadow-[var(--shadow-card)] transition-shadow duration-150 hover:shadow-[var(--shadow-card-hover)] ${decidido ? "opacity-60" : ""}`}
-    >
+    <div className="flex flex-col gap-3 rounded-card bg-surface-primary p-4 shadow-[var(--shadow-card)] transition-shadow duration-150 hover:shadow-[var(--shadow-card-hover)]">
       <div className="flex items-start justify-between gap-3">
         <button onClick={onAbrir} className="flex flex-1 flex-col items-start gap-0.5 text-left">
           <span className="text-base font-medium text-text-primary">{fornecedor}</span>
@@ -72,24 +68,18 @@ export function ReviewCard({ item, status, rotulos, onAbrir, onConfirmar }: Revi
       <div className="flex items-center justify-between">
         <ConfidenceIndicator valor={proposta.confiancaGeral} compact />
         <div className="flex items-center gap-2">
-          {decidido ? (
-            <Badge tone="green">{status}</Badge>
-          ) : (
-            <>
-              <button
-                onClick={onConfirmar}
-                className="rounded-btn-sm bg-state-success px-2.5 py-1 text-xs font-medium text-white transition-colors hover:brightness-110"
-              >
-                Confirmar
-              </button>
-              <button
-                onClick={onAbrir}
-                className="rounded-btn-sm border border-border-default px-2.5 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
-              >
-                Abrir
-              </button>
-            </>
-          )}
+          <button
+            onClick={onConfirmar}
+            className="rounded-btn-sm bg-state-success px-2.5 py-1 text-xs font-medium text-white transition-colors hover:brightness-110"
+          >
+            Confirmar
+          </button>
+          <button
+            onClick={onAbrir}
+            className="rounded-btn-sm border border-border-default px-2.5 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
+          >
+            Abrir
+          </button>
         </div>
       </div>
     </div>

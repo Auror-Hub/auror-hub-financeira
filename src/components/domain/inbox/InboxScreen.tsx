@@ -3,8 +3,15 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox, Layers, PartyPopper, Sparkles } from "lucide-react";
-import type { ItemFila, StatusRevisaoLocal, TipoPendencia } from "@/lib/domain/inbox";
+import type { ItemFila, TipoPendencia } from "@/lib/domain/inbox";
 import { classificarLancamentosPendentes } from "@/lib/classificacao/actions";
+import {
+  adicionarContexto,
+  confirmarClassificacao,
+  corrigirClassificacao,
+  marcarExcecao,
+  type CorrecaoClassificacao,
+} from "@/lib/classificacao/decisoes";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ReviewCard } from "./ReviewCard";
@@ -31,18 +38,17 @@ export interface InboxScreenProps {
 export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentosSemProposta }: InboxScreenProps) {
   const router = useRouter();
   const [pendenteClassificacao, startTransition] = useTransition();
-  const [erroClassificacao, setErroClassificacao] = useState<string | null>(null);
+  const [pendenteAcao, startAcaoTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
 
-  const [decisoes, setDecisoes] = useState<Record<string, StatusRevisaoLocal>>({});
+  /** "Revisar depois" não persiste (não há ENT-REVIEW-EVENT pra isso) — só some da fila até recarregar. */
+  const [adiados, setAdiados] = useState<Set<string>>(new Set());
   const [filtroPendencia, setFiltroPendencia] = useState<TipoPendencia | "todas">("todas");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("confianca");
   const [itemAbertoId, setItemAbertoId] = useState<string | null>(null);
   const [grupoLoteAberto, setGrupoLoteAberto] = useState<string | null>(null);
 
-  const pendentes = useMemo(
-    () => itens.filter((i) => (decisoes[i.lancamento.id] ?? "pendente") === "pendente"),
-    [itens, decisoes],
-  );
+  const pendentes = useMemo(() => itens.filter((i) => !adiados.has(i.lancamento.id)), [itens, adiados]);
 
   const tiposPresentes = useMemo(() => {
     const set = new Set<TipoPendencia>();
@@ -78,32 +84,58 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
     return Array.from(map.entries()).filter(([, itens]) => itens.length >= 2);
   }, [pendentes]);
 
-  const totalRevisados = itens.length - pendentes.length;
+  const totalAdiados = adiados.size;
   const itemAberto = filtrados.find((i) => i.lancamento.id === itemAbertoId) ?? null;
   const indexAberto = itemAberto ? filtrados.indexOf(itemAberto) : -1;
 
-  function decidir(id: string, status: StatusRevisaoLocal) {
-    setDecisoes((prev) => ({ ...prev, [id]: status }));
+  function executarAcao(acao: () => Promise<void>, aoTerminar?: () => void) {
+    setErro(null);
+    startAcaoTransition(async () => {
+      try {
+        await acao();
+        aoTerminar?.();
+        router.refresh();
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Falha ao gravar a decisão.");
+      }
+    });
+  }
+
+  function adiar(id: string) {
+    setAdiados((prev) => new Set(prev).add(id));
     if (itemAbertoId === id) setItemAbertoId(null);
   }
 
-  function decidirGrupo(ids: string[], status: StatusRevisaoLocal) {
-    setDecisoes((prev) => {
-      const next = { ...prev };
-      ids.forEach((id) => (next[id] = status));
-      return next;
-    });
-    setGrupoLoteAberto(null);
+  function confirmar(id: string) {
+    executarAcao(() => confirmarClassificacao(id), () => setItemAbertoId((atual) => (atual === id ? null : atual)));
+  }
+
+  function corrigir(id: string, correcao: CorrecaoClassificacao) {
+    executarAcao(() => corrigirClassificacao(id, correcao), () => setItemAbertoId(null));
+  }
+
+  function excecao(id: string, motivo: string) {
+    executarAcao(() => marcarExcecao(id, motivo), () => setItemAbertoId(null));
+  }
+
+  function contexto(id: string, texto: string) {
+    executarAcao(() => adicionarContexto(id, texto));
+  }
+
+  function confirmarGrupo(ids: string[]) {
+    executarAcao(async () => {
+      for (const id of ids) await confirmarClassificacao(id);
+    }, () => setGrupoLoteAberto(null));
   }
 
   function gerarPropostas() {
-    setErroClassificacao(null);
+    setErro(null);
     startTransition(async () => {
       try {
         await classificarLancamentosPendentes();
         router.refresh();
       } catch (e) {
-        setErroClassificacao(e instanceof Error ? e.message : "Falha ao gerar propostas de classificação.");
+        setErro(e instanceof Error ? e.message : "Falha ao gerar propostas de classificação.");
       }
     });
   }
@@ -124,14 +156,14 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
     return (
       <div className="flex flex-col gap-4">
         {bannerPendentesClassificacao}
-        {erroClassificacao && <p className="text-sm text-terra">{erroClassificacao}</p>}
+        {erro && <p className="text-sm text-terra">{erro}</p>}
         <div className="flex flex-col items-center gap-3 rounded-card bg-surface-primary p-10 text-center shadow-[var(--shadow-card)]">
           <PartyPopper size={28} className="text-state-success" strokeWidth={1.5} />
           <h1 className="text-xl font-semibold text-text-primary">Nenhuma pendência no momento</h1>
           <p className="max-w-md text-base text-text-secondary">
             {itens.length === 0
-              ? "Nenhum lançamento importado ainda — envie uma fatura para começar."
-              : `Você revisou ${totalRevisados} lançamento${totalRevisados === 1 ? "" : "s"} nesta sessão. A Caixa de Entrada está limpa até a próxima importação.`}
+              ? "Nenhum lançamento aguardando revisão — envie uma fatura ou aguarde a classificação para começar."
+              : `Você adiou ${totalAdiados} lançamento${totalAdiados === 1 ? "" : "s"} nesta sessão — eles voltam a aparecer ao recarregar a página.`}
           </p>
         </div>
       </div>
@@ -141,7 +173,7 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
   return (
     <div className="flex flex-col gap-5">
       {bannerPendentesClassificacao}
-      {erroClassificacao && <p className="text-sm text-terra">{erroClassificacao}</p>}
+      {erro && <p className="text-sm text-terra">{erro}</p>}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -196,10 +228,9 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
           <ReviewCard
             key={item.lancamento.id}
             item={item}
-            status={decisoes[item.lancamento.id] ?? "pendente"}
             rotulos={rotulos}
             onAbrir={() => setItemAbertoId(item.lancamento.id)}
-            onConfirmar={() => decidir(item.lancamento.id, "confirmado")}
+            onConfirmar={() => confirmar(item.lancamento.id)}
           />
         ))}
         {filtrados.length === 0 && (
@@ -211,15 +242,16 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
 
       <TransactionDrawer
         item={itemAberto}
-        status={itemAberto ? (decisoes[itemAberto.lancamento.id] ?? "pendente") : "pendente"}
+        pendente={pendenteAcao}
         rotulos={rotulos}
         categorias={categorias}
         objetivos={objetivos}
         onClose={() => setItemAbertoId(null)}
-        onConfirmar={() => itemAberto && decidir(itemAberto.lancamento.id, "confirmado")}
-        onCorrigir={() => itemAberto && decidir(itemAberto.lancamento.id, "corrigido")}
-        onExcecao={() => itemAberto && decidir(itemAberto.lancamento.id, "exceção")}
-        onAdiar={() => itemAberto && decidir(itemAberto.lancamento.id, "adiado")}
+        onConfirmar={() => itemAberto && confirmar(itemAberto.lancamento.id)}
+        onCorrigir={(correcao) => itemAberto && corrigir(itemAberto.lancamento.id, correcao)}
+        onExcecao={(motivo) => itemAberto && excecao(itemAberto.lancamento.id, motivo)}
+        onAdicionarContexto={(texto) => itemAberto && contexto(itemAberto.lancamento.id, texto)}
+        onAdiar={() => itemAberto && adiar(itemAberto.lancamento.id)}
         onProximo={
           indexAberto >= 0 && indexAberto < filtrados.length - 1
             ? () => setItemAbertoId(filtrados[indexAberto + 1].lancamento.id)
@@ -235,7 +267,7 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
         open={!!grupoLoteAberto}
         rotulos={rotulos}
         onClose={() => setGrupoLoteAberto(null)}
-        onAplicar={(ids) => decidirGrupo(ids, "confirmado")}
+        onAplicar={confirmarGrupo}
       />
     </div>
   );

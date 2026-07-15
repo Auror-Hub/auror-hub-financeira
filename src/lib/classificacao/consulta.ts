@@ -22,7 +22,7 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
   const { data: lancamentosRaw, error: errL } = await supabase
     .from("lancamentos_brutos")
     .select(
-      "id, lote_importacao_id, cartao_id, competencia_calculada, data, vencimento, fornecedor_original, descricao_original, valor, parcela_atual, total_parcelas, moeda, arquivo_origem_id, pagina_ou_posicao, identificador_deduplicacao",
+      "id, lote_importacao_id, cartao_id, competencia_calculada, data, vencimento, fornecedor_original, descricao_original, valor, parcela_atual, total_parcelas, moeda, arquivo_origem_id, pagina_ou_posicao, identificador_deduplicacao, origem",
     )
     .order("data", { ascending: false });
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
@@ -32,16 +32,27 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
 
   const idsLancamentos = lancamentosRows.map((l) => l.id as string);
 
-  const [{ data: propostasRaw, error: errP }, taxonomia, { data: fornecedoresRaw, error: errF }, { data: duplicatasRaw, error: errD }] =
-    await Promise.all([
-      supabase.from("classificacao_propostas").select("*").in("lancamento_id", idsLancamentos).order("criado_em", { ascending: false }),
-      carregarTaxonomia(supabase),
-      supabase.from("fornecedores_padronizados").select("id, nome_oficial, comportamento_contextual"),
-      supabase.from("possiveis_duplicatas").select("lancamento_a_id, lancamento_b_id").eq("status", "pendente"),
-    ]);
+  const [
+    { data: propostasRaw, error: errP },
+    taxonomia,
+    { data: fornecedoresRaw, error: errF },
+    { data: duplicatasRaw, error: errD },
+    { data: decisoesRaw, error: errDec },
+  ] = await Promise.all([
+    supabase.from("classificacao_propostas").select("*").in("lancamento_id", idsLancamentos).order("criado_em", { ascending: false }),
+    carregarTaxonomia(supabase),
+    supabase.from("fornecedores_padronizados").select("id, nome_oficial, comportamento_contextual"),
+    supabase.from("possiveis_duplicatas").select("lancamento_a_id, lancamento_b_id").eq("status", "pendente"),
+    supabase.from("classificacao_decisoes").select("lancamento_id").in("lancamento_id", idsLancamentos),
+  ]);
   if (errP) throw new Error("Falha ao carregar propostas de classificação: " + errP.message);
   if (errF) throw new Error("Falha ao carregar fornecedores padronizados: " + errF.message);
   if (errD) throw new Error("Falha ao carregar possíveis duplicatas: " + errD.message);
+  if (errDec) throw new Error("Falha ao carregar decisões: " + errDec.message);
+
+  // Um lançamento com decisão já gravada não é mais "pendente" — essa é a
+  // definição real agora (BE-4), substituindo o estado local por sessão do BE-3.
+  const lancamentosComDecisao = new Set((decisoesRaw ?? []).map((d) => d.lancamento_id as string));
 
   // A proposta vigente de cada lançamento é a mais recente (já vem ordenado desc).
   const propostaPorLancamento = new Map<string, NonNullable<typeof propostasRaw>[number]>();
@@ -72,6 +83,8 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
   let semProposta = 0;
 
   for (const l of lancamentosRows) {
+    if (lancamentosComDecisao.has(l.id as string)) continue;
+
     const propostaRow = propostaPorLancamento.get(l.id as string);
     if (!propostaRow) {
       semProposta++;
@@ -80,7 +93,7 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
 
     const lancamento: LancamentoBruto = {
       id: l.id as string,
-      loteImportacaoId: l.lote_importacao_id as string,
+      loteImportacaoId: (l.lote_importacao_id as string | null) ?? undefined,
       cartaoId: l.cartao_id as string,
       competenciaCalculada: l.competencia_calculada as string,
       data: l.data as string,
@@ -91,9 +104,10 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
       parcelaAtual: (l.parcela_atual as number | null) ?? undefined,
       totalParcelas: (l.total_parcelas as number | null) ?? undefined,
       moeda: l.moeda as string,
-      arquivoOrigemId: l.arquivo_origem_id as string,
+      arquivoOrigemId: (l.arquivo_origem_id as string | null) ?? undefined,
       paginaOuPosicao: (l.pagina_ou_posicao as string | null) ?? undefined,
       identificadorDeduplicacao: l.identificador_deduplicacao as string,
+      origem: l.origem as "importado" | "manual",
     };
 
     const fornecedorSugeridoId = (propostaRow.fornecedor_sugerido_id as string | null) ?? undefined;
