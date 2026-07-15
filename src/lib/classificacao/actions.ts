@@ -5,6 +5,7 @@ import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarTaxonomia } from "./taxonomia";
 import { carregarAliasesDoPerfil } from "./fornecedores";
 import { classificarLancamentos, VERSAO_CLASSIFICADOR, type LancamentoParaClassificar } from "./motor";
+import { carregarRegrasAtivas, marcarRegrasConflitantes, registrarUsoRegras } from "@/lib/regras/motor";
 
 export interface ClassificarPendentesResultado {
   totalProcessados: number;
@@ -47,9 +48,24 @@ export async function classificarLancamentosPendentes(): Promise<ClassificarPend
 
   if (pendentes.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0 };
 
-  const [taxonomia, aliases] = await Promise.all([carregarTaxonomia(supabase), carregarAliasesDoPerfil(supabase, perfilId)]);
+  const [taxonomia, aliases, regrasAtivas] = await Promise.all([
+    carregarTaxonomia(supabase),
+    carregarAliasesDoPerfil(supabase, perfilId),
+    carregarRegrasAtivas(supabase, perfilId),
+  ]);
 
-  const propostas = await classificarLancamentos(pendentes, aliases, taxonomia);
+  const { propostas, execucoesRegra } = await classificarLancamentos(pendentes, aliases, taxonomia, regrasAtivas);
+
+  if (execucoesRegra.length > 0) {
+    const { error: errExecucoes } = await supabase.from("regra_execucoes").insert(
+      execucoesRegra.map((e) => ({ regra_id: e.regraId, lancamento_id: e.lancamentoId, resultado: e.resultado })),
+    );
+    if (errExecucoes) throw new Error("Falha ao gravar execuções de regra: " + errExecucoes.message);
+
+    const idsConflitantes = [...new Set(execucoesRegra.filter((e) => e.resultado === "bloqueada_por_conflito").map((e) => e.regraId))];
+    const idsAplicadas = [...new Set(execucoesRegra.filter((e) => e.resultado === "aplicada").map((e) => e.regraId))];
+    await Promise.all([marcarRegrasConflitantes(supabase, idsConflitantes), registrarUsoRegras(supabase, idsAplicadas)]);
+  }
 
   const linhas = propostas.map((p) => ({
     lancamento_id: p.lancamentoId,

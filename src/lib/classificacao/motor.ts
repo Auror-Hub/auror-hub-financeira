@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { TermoTaxonomiaRow } from "./taxonomia";
 import { indexarPorRotulo } from "./taxonomia";
 import { sugerirPorPadraoGenerico, casarAlias, type AliasResolvido } from "./fornecedores";
+import { regrasQueCasam, consequenciasDivergem, type RegraAtiva, type ExecucaoRegraParaGravar } from "@/lib/regras/motor";
 
 export const VERSAO_CLASSIFICADOR = "be3-hibrido-v1";
 
@@ -28,34 +29,76 @@ export interface PropostaGerada {
   origem: "regra" | "llm";
 }
 
+interface ResultadoRegra {
+  proposta: PropostaGerada | null;
+  execucoes: ExecucaoRegraParaGravar[];
+}
+
 /**
- * Tenta classificar por regra determinística (sem custo de API): alias de
- * fornecedor já cadastrado pelo perfil, senão um padrão genérico conhecido.
+ * Tenta classificar por regra determinística (sem custo de API), em ordem:
+ * 1. Regras do Motor de Regras (Fase 4) — aprendidas ou criadas manualmente.
+ *    Conflito entre regras ativas (RUL-13) nunca é resolvido em silêncio:
+ *    nenhuma se aplica, ambas viram execução "bloqueada_por_conflito" e o
+ *    lançamento cai pro próximo nível.
+ * 2. Alias de fornecedor já cadastrado pelo perfil (BE-3).
+ * 3. Padrão genérico conhecido (BE-3).
  * Retorna null quando não há nenhum sinal — esse lançamento vai pro lote da IA.
  */
 function classificarPorRegra(
   lancamento: LancamentoParaClassificar,
   aliasesDoPerfil: AliasResolvido[],
   taxonomiaIndex: ReturnType<typeof indexarPorRotulo>,
-): PropostaGerada | null {
+  regrasAtivas: RegraAtiva[],
+): ResultadoRegra {
+  const regrasCasadas = regrasQueCasam(lancamento.descricaoOriginal, regrasAtivas);
+  if (regrasCasadas.length > 0) {
+    if (consequenciasDivergem(regrasCasadas)) {
+      return {
+        proposta: null,
+        execucoes: regrasCasadas.map((r) => ({ regraId: r.id, lancamentoId: lancamento.id, resultado: "bloqueada_por_conflito" as const })),
+      };
+    }
+    const regra = regrasCasadas[0];
+    return {
+      proposta: {
+        lancamentoId: lancamento.id,
+        fornecedorSugeridoId: null,
+        categoriaId: regra.categoriaId,
+        subcategoriaId: regra.subcategoriaId,
+        objetivoId: regra.objetivoId,
+        contextoSugerido: null,
+        confiancaCategoria: regra.categoriaId ? regra.confianca : null,
+        confiancaSubcategoria: regra.subcategoriaId ? regra.confianca : null,
+        confiancaObjetivo: regra.objetivoId ? regra.confianca * 0.8 : null,
+        confiancaGeral: regra.confianca,
+        justificativa: `Regra aplicada — fornecedor contém "${regra.textoCondicao}" (aprendida a partir de correções anteriores ou criada manualmente).`,
+        origem: "regra",
+      },
+      execucoes: [{ regraId: regra.id, lancamentoId: lancamento.id, resultado: "aplicada" }],
+    };
+  }
+
   const aliasCasado = casarAlias(lancamento.descricaoOriginal, aliasesDoPerfil);
   if (aliasCasado) {
     const categoria = taxonomiaIndex.buscar("categoria", aliasCasado.categoriaDominanteRotulo);
     return {
-      lancamentoId: lancamento.id,
-      fornecedorSugeridoId: aliasCasado.fornecedorPadronizadoId,
-      categoriaId: categoria?.id ?? null,
-      subcategoriaId: null,
-      objetivoId: null,
-      contextoSugerido: null,
-      confiancaCategoria: categoria ? 0.9 : null,
-      confiancaSubcategoria: null,
-      confiancaObjetivo: null,
-      confiancaGeral: categoria ? 0.9 : 0.3,
-      justificativa: categoria
-        ? `Fornecedor "${aliasCasado.nomeOficial}" já está cadastrado como padronizado — categoria aplicada com base nisso.`
-        : `Fornecedor "${aliasCasado.nomeOficial}" já está cadastrado, mas ainda sem categoria dominante definida — requer revisão manual.`,
-      origem: "regra",
+      proposta: {
+        lancamentoId: lancamento.id,
+        fornecedorSugeridoId: aliasCasado.fornecedorPadronizadoId,
+        categoriaId: categoria?.id ?? null,
+        subcategoriaId: null,
+        objetivoId: null,
+        contextoSugerido: null,
+        confiancaCategoria: categoria ? 0.9 : null,
+        confiancaSubcategoria: null,
+        confiancaObjetivo: null,
+        confiancaGeral: categoria ? 0.9 : 0.3,
+        justificativa: categoria
+          ? `Fornecedor "${aliasCasado.nomeOficial}" já está cadastrado como padronizado — categoria aplicada com base nisso.`
+          : `Fornecedor "${aliasCasado.nomeOficial}" já está cadastrado, mas ainda sem categoria dominante definida — requer revisão manual.`,
+        origem: "regra",
+      },
+      execucoes: [],
     };
   }
 
@@ -64,22 +107,25 @@ function classificarPorRegra(
     const categoria = taxonomiaIndex.buscar("categoria", generico.categoria);
     const subcategoria = taxonomiaIndex.buscar("subcategoria", generico.subcategoria);
     return {
-      lancamentoId: lancamento.id,
-      fornecedorSugeridoId: null,
-      categoriaId: categoria?.id ?? null,
-      subcategoriaId: subcategoria?.id ?? null,
-      objetivoId: null,
-      contextoSugerido: null,
-      confiancaCategoria: 0.7,
-      confiancaSubcategoria: 0.65,
-      confiancaObjetivo: null,
-      confiancaGeral: 0.65,
-      justificativa: `Padrão de fornecedor conhecido genericamente (não específico da sua família ainda) sugere esta categoria. Objetivo não é sugerido por regra — depende de quem/para que foi o gasto.`,
-      origem: "regra",
+      proposta: {
+        lancamentoId: lancamento.id,
+        fornecedorSugeridoId: null,
+        categoriaId: categoria?.id ?? null,
+        subcategoriaId: subcategoria?.id ?? null,
+        objetivoId: null,
+        contextoSugerido: null,
+        confiancaCategoria: 0.7,
+        confiancaSubcategoria: 0.65,
+        confiancaObjetivo: null,
+        confiancaGeral: 0.65,
+        justificativa: `Padrão de fornecedor conhecido genericamente (não específico da sua família ainda) sugere esta categoria. Objetivo não é sugerido por regra — depende de quem/para que foi o gasto.`,
+        origem: "regra",
+      },
+      execucoes: [],
     };
   }
 
-  return null;
+  return { proposta: null, execucoes: [] };
 }
 
 interface ItemParaLlm {
@@ -188,23 +234,31 @@ ${JSON.stringify(itens.map((i) => ({ id: i.id, descricao: i.descricao, valor: i.
 
 const TAMANHO_LOTE_LLM = 50;
 
-/** Classifica um conjunto de lançamentos: regra determinística primeiro, fallback em lote via IA para o resto. */
+export interface ResultadoClassificacao {
+  propostas: PropostaGerada[];
+  execucoesRegra: ExecucaoRegraParaGravar[];
+}
+
+/** Classifica um conjunto de lançamentos: Motor de Regras (Fase 4) → alias/padrão genérico (BE-3) → fallback em lote via IA. */
 export async function classificarLancamentos(
   lancamentos: LancamentoParaClassificar[],
   aliasesDoPerfil: AliasResolvido[],
   taxonomia: TermoTaxonomiaRow[],
-): Promise<PropostaGerada[]> {
+  regrasAtivas: RegraAtiva[] = [],
+): Promise<ResultadoClassificacao> {
   const taxonomiaIndex = indexarPorRotulo(taxonomia);
   const propostas: PropostaGerada[] = [];
+  const execucoesRegra: ExecucaoRegraParaGravar[] = [];
   const pendentesLlm: LancamentoParaClassificar[] = [];
 
   for (const lancamento of lancamentos) {
-    const propostaRegra = classificarPorRegra(lancamento, aliasesDoPerfil, taxonomiaIndex);
-    if (propostaRegra) propostas.push(propostaRegra);
+    const resultado = classificarPorRegra(lancamento, aliasesDoPerfil, taxonomiaIndex, regrasAtivas);
+    execucoesRegra.push(...resultado.execucoes);
+    if (resultado.proposta) propostas.push(resultado.proposta);
     else pendentesLlm.push(lancamento);
   }
 
-  if (pendentesLlm.length === 0) return propostas;
+  if (pendentesLlm.length === 0) return { propostas, execucoesRegra };
 
   const categorias = taxonomia.filter((t) => t.dimensao === "categoria");
   const objetivos = taxonomia.filter((t) => t.dimensao === "objetivo").map((t) => t.rotulo);
@@ -269,5 +323,5 @@ export async function classificarLancamentos(
     }
   }
 
-  return propostas;
+  return { propostas, execucoesRegra };
 }

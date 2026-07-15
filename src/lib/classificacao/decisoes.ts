@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { reabrirSeFechada } from "@/lib/competencias/reabertura";
+import { avaliarAprendizagem } from "@/lib/regras/aprendizagem";
 
 async function proximaVersao(
   supabase: Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"],
@@ -95,22 +96,34 @@ export async function corrigirClassificacao(lancamentoId: string, correcao: Corr
   const proposta = await ultimaProposta(supabase, lancamentoId);
 
   const versao = await proximaVersao(supabase, lancamentoId);
-  const { error } = await supabase.from("classificacao_decisoes").insert({
-    lancamento_id: lancamentoId,
-    proposta_anterior_id: proposta?.id ?? null,
-    categoria_id: correcao.categoriaId,
-    subcategoria_id: correcao.subcategoriaId ?? null,
-    objetivo_id: correcao.objetivoId,
-    contexto: correcao.contexto ?? null,
-    fornecedor_id: proposta?.fornecedor_sugerido_id ?? null,
-    origem_da_decisao: "manual",
-    status: "corrigida",
-    versao,
-  });
-  if (error) throw new Error("Falha ao gravar correção: " + error.message);
+  const { data: decisao, error } = await supabase
+    .from("classificacao_decisoes")
+    .insert({
+      lancamento_id: lancamentoId,
+      proposta_anterior_id: proposta?.id ?? null,
+      categoria_id: correcao.categoriaId,
+      subcategoria_id: correcao.subcategoriaId ?? null,
+      objetivo_id: correcao.objetivoId,
+      contexto: correcao.contexto ?? null,
+      fornecedor_id: proposta?.fornecedor_sugerido_id ?? null,
+      origem_da_decisao: "manual",
+      status: "corrigida",
+      versao,
+    })
+    .select()
+    .single();
+  if (error || !decisao) throw new Error("Falha ao gravar correção: " + (error?.message ?? "erro desconhecido"));
 
   await supabase.from("eventos_revisao").insert({ lancamento_id: lancamentoId, tipo: "alterou", usuario_id: user.id });
   await registrarAuditoria(supabase, perfilId, "lancamento_bruto", lancamentoId, "decisão", { status: "corrigida" });
+
+  // Agente de Aprendizagem (Fase 4) — supplementary: uma falha aqui não deve
+  // reverter a correção, que já está commitada no banco.
+  try {
+    await avaliarAprendizagem(supabase, perfilId, lancamentoId, decisao.id as string, correcao.categoriaId, correcao.objetivoId);
+  } catch (e) {
+    console.error("Falha ao avaliar aprendizagem (Fase 4):", e);
+  }
 
   revalidatePath("/caixa-de-entrada");
 }
