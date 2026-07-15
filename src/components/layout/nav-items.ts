@@ -33,6 +33,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/historico", label: "Histórico", icon: History, implemented: true },
   { href: "/relatorios", label: "Relatórios", icon: FileText, implemented: true },
   { href: "/dashboards", label: "Dashboards", icon: LayoutDashboard, implemented: true },
-  { href: "/consultor", label: "Consultor", icon: MessageCircle, implemented: false },
+  { href: "/consultor", label: "Consultor", icon: MessageCircle, implemented: true },
   { href: "/configuracoes", label: "Configurações", icon: Settings, implemented: false },
 ];

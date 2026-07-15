@@ -1,6 +1,5 @@
-import { MessageCircle } from "lucide-react";
-import { PlaceholderScreen } from "@/components/common/PlaceholderScreen";
+import { ConsultantScreen } from "@/components/domain/consultor/ConsultantScreen";
 
 export default function ConsultorPage() {
-  return <PlaceholderScreen title="Consultor" icon={MessageCircle} />;
+  return <ConsultantScreen />;
 }

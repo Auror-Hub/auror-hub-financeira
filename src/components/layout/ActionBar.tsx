@@ -10,15 +10,11 @@ export function ActionBar() {
           Enviar documento
         </Button>
       </Link>
-      <Button
-        variant="ghost"
-        size="sm"
-        icon={<MessageCircle size={16} strokeWidth={1.75} />}
-        disabled
-        title="Consultor chega em fase posterior — ver docs/ROADMAP.md"
-      >
-        Perguntar ao Consultor
-      </Button>
+      <Link href="/consultor">
+        <Button variant="ghost" size="sm" icon={<MessageCircle size={16} strokeWidth={1.75} />}>
+          Perguntar ao Consultor
+        </Button>
+      </Link>
     </footer>
   );
 }
