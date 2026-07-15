@@ -16,7 +16,7 @@ interface DadosCongelados {
  * desde BE-2). Aqui recebemos os dois operandos já como magnitude de gasto
  * (positivos) — variação positiva = gastou mais, negativa = gastou menos.
  */
-function variacaoPercentual(atualGasto: number, anteriorGasto: number): number | null {
+export function variacaoPercentual(atualGasto: number, anteriorGasto: number): number | null {
   if (anteriorGasto === 0) return null;
   return (atualGasto - anteriorGasto) / Math.abs(anteriorGasto);
 }
