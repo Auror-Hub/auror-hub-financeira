@@ -9,6 +9,7 @@ import {
   Workflow,
   History,
   FileText,
+  LayoutDashboard,
   MessageCircle,
   Settings,
 } from "lucide-react";
@@ -27,10 +28,11 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/competencias", label: "Competências", icon: CalendarClock, implemented: true },
   { href: "/acervo", label: "Acervo", icon: Archive, implemented: false },
   { href: "/fornecedores", label: "Fornecedores", icon: Store, implemented: false },
-  { href: "/taxonomia", label: "Taxonomia", icon: Tags, implemented: false },
-  { href: "/regras", label: "Motor de Regras", icon: Workflow, implemented: false },
-  { href: "/historico", label: "Histórico", icon: History, implemented: false },
-  { href: "/relatorios", label: "Relatórios", icon: FileText, implemented: false },
+  { href: "/taxonomia", label: "Taxonomia", icon: Tags, implemented: true },
+  { href: "/regras", label: "Motor de Regras", icon: Workflow, implemented: true },
+  { href: "/historico", label: "Histórico", icon: History, implemented: true },
+  { href: "/relatorios", label: "Relatórios", icon: FileText, implemented: true },
+  { href: "/dashboards", label: "Dashboards", icon: LayoutDashboard, implemented: true },
   { href: "/consultor", label: "Consultor", icon: MessageCircle, implemented: false },
   { href: "/configuracoes", label: "Configurações", icon: Settings, implemented: false },
 ];
