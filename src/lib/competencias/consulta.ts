@@ -136,6 +136,7 @@ export async function carregarCompetencias(): Promise<CompetenciaDetalhe[]> {
       lancamentosPendentes: grupo.pendentes,
       totalConsolidado: grupo.totalConsolidado,
       insights: [],
+      recomendacoes: [],
       versoesFechamento,
       relatorioDisponivel: versoesFechamento.length > 0,
     };

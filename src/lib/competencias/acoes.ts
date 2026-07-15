@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { reabrirCompetenciaInterno, registrarAuditoriaCompetencia } from "./reabertura";
+import { gerarInsights } from "@/lib/analise/motor";
 
 /**
  * Fecha a competência: bloqueia se houver lançamento sem decisão registrada
@@ -104,17 +105,25 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
     quebraPorObjetivo,
   };
 
-  const { error: errSnapshot } = await supabase.from("snapshots_analiticos").insert({
-    competencia_id: competenciaId,
-    fechamento_id: fechamento.id,
-    dados_congelados: dadosCongelados,
-  });
-  if (errSnapshot) throw new Error("Falha ao gravar snapshot: " + errSnapshot.message);
+  const { data: snapshot, error: errSnapshot } = await supabase
+    .from("snapshots_analiticos")
+    .insert({ competencia_id: competenciaId, fechamento_id: fechamento.id, dados_congelados: dadosCongelados })
+    .select()
+    .single();
+  if (errSnapshot || !snapshot) throw new Error("Falha ao gravar snapshot: " + (errSnapshot?.message ?? "erro desconhecido"));
 
   const { error: errEstado } = await supabase.from("competencias").update({ estado: "fechada" }).eq("id", competenciaId);
   if (errEstado) throw new Error("Falha ao atualizar estado da competência: " + errEstado.message);
 
   await registrarAuditoriaCompetencia(supabase, perfilId, competenciaId, "fechamento", { versao: novaVersao });
+
+  // Agente Analista (Fase 6) — supplementary/interpretativo: uma falha aqui
+  // não deve reverter o fechamento, que já está commitado no banco.
+  try {
+    await gerarInsights(supabase, perfilId, competenciaId, snapshot.id as string, competencia.mes_referencia as string, dadosCongelados);
+  } catch (e) {
+    console.error("Falha ao gerar insights (Fase 6):", e);
+  }
 
   revalidatePath("/competencias");
   revalidatePath(`/competencias/${competenciaId}`);

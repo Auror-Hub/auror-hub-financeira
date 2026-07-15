@@ -3,13 +3,15 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Inbox, Lock, RotateCcw, Sparkles } from "lucide-react";
+import { Inbox, Lightbulb, Lock, RotateCcw } from "lucide-react";
 import type { CompetenciaDetalhe, MotivoReabertura } from "@/lib/domain/competency";
 import { fecharCompetencia, reabrirCompetencia } from "@/lib/competencias/acoes";
 import { formatBRL, formatCompetencia, formatData } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { InsightNarrative } from "@/components/domain/home/InsightNarrative";
 import { CompetencyStatusBadge } from "./CompetencyStatusBadge";
 import { CloseCompetencyModal } from "./CloseCompetencyModal";
 import { ReopenCompetencyModal } from "./ReopenCompetencyModal";
@@ -111,13 +113,40 @@ export function CompetencyDetailScreen({ detalheInicial: detalhe }: { detalheIni
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <Card className="flex items-start gap-2 bg-surface-secondary">
-            <Sparkles size={16} className="mt-0.5 shrink-0 text-text-muted" strokeWidth={1.75} />
-            <p className="text-sm text-text-muted">
-              Análises interpretativas (Agente Analista) chegam na Fase 6+7 — esta tela mostra só o consolidado
-              numérico congelado ao fechar.
-            </p>
-          </Card>
+          <section className="flex flex-col gap-3">
+            <span className="eyebrow">Análises</span>
+            {detalhe.insights.length > 0 ? (
+              <>
+                {detalhe.insights.map((i) => (
+                  <InsightNarrative key={i.id} insight={i} />
+                ))}
+                {detalhe.recomendacoes.length > 0 && (
+                  <Card>
+                    <CardHeader title="Recomendações" count={detalhe.recomendacoes.length} />
+                    <ul className="flex flex-col gap-3">
+                      {detalhe.recomendacoes.map((r) => (
+                        <li key={r.id} className="flex items-start gap-2">
+                          <Lightbulb size={15} className="mt-0.5 shrink-0 text-state-neutral" strokeWidth={1.75} />
+                          <div className="flex flex-col gap-1">
+                            <span className="text-base text-text-secondary">{r.texto}</span>
+                            <Badge tone="slate">{r.tipo}</Badge>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <Card className="bg-surface-secondary">
+                <p className="text-sm text-text-muted">
+                  {detalhe.competencia.estado === "fechada" || detalhe.competencia.estado === "reaberta"
+                    ? "Nenhuma mudança significativa detectada nesta competência."
+                    : "Análises ficam disponíveis depois do fechamento desta competência."}
+                </p>
+              </Card>
+            )}
+          </section>
 
           <Card>
             <CardHeader title="Documentos de origem" count={detalhe.documentos.length} />
@@ -142,7 +171,7 @@ export function CompetencyDetailScreen({ detalheInicial: detalhe }: { detalheIni
             <CardHeader title="Relatório" />
             {detalhe.relatorioDisponivel ? (
               <p className="text-base text-text-secondary">
-                Snapshot consolidado disponível (gerado ao fechar). Relatório executivo narrado chega na Fase 6+7.
+                Snapshot consolidado disponível (gerado ao fechar). Relatório executivo narrado (Agente Narrador) chega na Fase 7.
               </p>
             ) : (
               <p className="text-base text-text-muted">Gerado automaticamente ao fechar a competência.</p>

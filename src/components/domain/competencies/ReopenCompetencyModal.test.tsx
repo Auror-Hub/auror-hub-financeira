@@ -12,6 +12,7 @@ const detalhe: CompetenciaDetalhe = {
   lancamentosPendentes: 0,
   totalConsolidado: 100_000,
   insights: [],
+  recomendacoes: [],
   versoesFechamento: [{ versao: 1, fechadoEm: "2026-06-01T10:00:00Z" }],
   relatorioDisponivel: true,
 };

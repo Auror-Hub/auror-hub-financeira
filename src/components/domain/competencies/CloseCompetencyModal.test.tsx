@@ -13,6 +13,7 @@ function detalhe(overrides: Partial<CompetenciaDetalhe> = {}): CompetenciaDetalh
     lancamentosPendentes: 0,
     totalConsolidado: 100_000,
     insights: [],
+    recomendacoes: [],
     versoesFechamento: [],
     relatorioDisponivel: false,
     ...overrides,

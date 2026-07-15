@@ -5,7 +5,7 @@
  * fechamento). Ficam fora de src/lib/domain/types.ts pelo mesmo motivo de
  * src/lib/domain/inbox.ts.
  */
-import type { Centavos, Competencia, Insight } from "./types";
+import type { Centavos, Competencia, Insight, Recomendacao } from "./types";
 
 export interface DocumentoOrigemResumo {
   nomeArquivo: string;
@@ -27,6 +27,7 @@ export interface CompetenciaDetalhe {
   lancamentosPendentes: number;
   totalConsolidado: Centavos;
   insights: Insight[];
+  recomendacoes: Recomendacao[];
   versoesFechamento: VersaoFechamento[];
   relatorioDisponivel: boolean;
 }
