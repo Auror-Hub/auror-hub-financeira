@@ -1,21 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Inbox, Lock, RotateCcw } from "lucide-react";
+import { Inbox, Lock, RotateCcw, Sparkles } from "lucide-react";
 import type { CompetenciaDetalhe, MotivoReabertura } from "@/lib/domain/competency";
-import type { EstadoCompetencia } from "@/lib/domain/types";
+import { fecharCompetencia, reabrirCompetencia } from "@/lib/competencias/acoes";
 import { formatBRL, formatCompetencia, formatData } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 import { Button } from "@/components/ui/Button";
-import { InsightNarrative } from "@/components/domain/home/InsightNarrative";
 import { CompetencyStatusBadge } from "./CompetencyStatusBadge";
 import { CloseCompetencyModal } from "./CloseCompetencyModal";
 import { ReopenCompetencyModal } from "./ReopenCompetencyModal";
 
-export function CompetencyDetailScreen({ detalheInicial }: { detalheInicial: CompetenciaDetalhe }) {
-  const [detalhe, setDetalhe] = useState(detalheInicial);
+export function CompetencyDetailScreen({ detalheInicial: detalhe }: { detalheInicial: CompetenciaDetalhe }) {
+  const router = useRouter();
+  const [pendente, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
   const [modalFechar, setModalFechar] = useState(false);
   const [modalReabrir, setModalReabrir] = useState(false);
 
@@ -26,29 +28,29 @@ export function CompetencyDetailScreen({ detalheInicial }: { detalheInicial: Com
     detalhe.competencia.estado === "reaberta";
 
   function confirmarFechamento() {
-    const novaVersao = (detalhe.versoesFechamento.at(-1)?.versao ?? 0) + 1;
-    setDetalhe((d) => ({
-      ...d,
-      competencia: { ...d.competencia, estado: "fechada" as EstadoCompetencia },
-      versoesFechamento: [...d.versoesFechamento, { versao: novaVersao, fechadoEm: new Date().toISOString() }],
-      relatorioDisponivel: true,
-    }));
-    setModalFechar(false);
+    setErro(null);
+    startTransition(async () => {
+      try {
+        await fecharCompetencia(detalhe.competencia.id);
+        setModalFechar(false);
+        router.refresh();
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Falha ao fechar a competência.");
+      }
+    });
   }
 
   function confirmarReabertura(motivo: MotivoReabertura, detalheMotivo: string) {
-    setDetalhe((d) => ({
-      ...d,
-      competencia: { ...d.competencia, estado: "reaberta" as EstadoCompetencia },
-      versoesFechamento: [
-        ...d.versoesFechamento,
-        {
-          versao: (d.versoesFechamento.at(-1)?.versao ?? 0) + 1,
-          motivoReaberturaAnterior: detalheMotivo ? `${motivo}: ${detalheMotivo}` : motivo,
-          fechadoEm: "",
-        },
-      ],
-    }));
+    setErro(null);
+    startTransition(async () => {
+      try {
+        await reabrirCompetencia(detalhe.competencia.id, motivo, detalheMotivo);
+        setModalReabrir(false);
+        router.refresh();
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Falha ao reabrir a competência.");
+      }
+    });
   }
 
   return (
@@ -74,6 +76,7 @@ export function CompetencyDetailScreen({ detalheInicial }: { detalheInicial: Com
               variant="success"
               size="sm"
               icon={<Lock size={14} strokeWidth={1.75} />}
+              disabled={pendente}
               onClick={() => setModalFechar(true)}
             >
               Fechar
@@ -84,6 +87,7 @@ export function CompetencyDetailScreen({ detalheInicial }: { detalheInicial: Com
               variant="secondary"
               size="sm"
               icon={<RotateCcw size={14} strokeWidth={1.75} />}
+              disabled={pendente}
               onClick={() => setModalReabrir(true)}
             >
               Reabrir
@@ -91,6 +95,8 @@ export function CompetencyDetailScreen({ detalheInicial }: { detalheInicial: Com
           )}
         </div>
       </div>
+
+      {erro && <p className="text-sm text-terra">{erro}</p>}
 
       <KpiStrip>
         <KpiTile label="Total consolidado" value={formatBRL(detalhe.totalConsolidado)} />
@@ -105,14 +111,13 @@ export function CompetencyDetailScreen({ detalheInicial }: { detalheInicial: Com
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
-          {detalhe.insights.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <span className="eyebrow">Análises preliminares</span>
-              {detalhe.insights.map((i) => (
-                <InsightNarrative key={i.id} insight={i} />
-              ))}
-            </section>
-          )}
+          <Card className="flex items-start gap-2 bg-surface-secondary">
+            <Sparkles size={16} className="mt-0.5 shrink-0 text-text-muted" strokeWidth={1.75} />
+            <p className="text-sm text-text-muted">
+              Análises interpretativas (Agente Analista) chegam na Fase 6+7 — esta tela mostra só o consolidado
+              numérico congelado ao fechar.
+            </p>
+          </Card>
 
           <Card>
             <CardHeader title="Documentos de origem" count={detalhe.documentos.length} />
@@ -136,13 +141,9 @@ export function CompetencyDetailScreen({ detalheInicial }: { detalheInicial: Com
           <Card>
             <CardHeader title="Relatório" />
             {detalhe.relatorioDisponivel ? (
-              <Link
-                href="/relatorios"
-                className="flex items-center gap-2 text-base text-action-primary hover:underline"
-              >
-                <FileText size={16} strokeWidth={1.75} />
-                Ver relatório executivo
-              </Link>
+              <p className="text-base text-text-secondary">
+                Snapshot consolidado disponível (gerado ao fechar). Relatório executivo narrado chega na Fase 6+7.
+              </p>
             ) : (
               <p className="text-base text-text-muted">Gerado automaticamente ao fechar a competência.</p>
             )}

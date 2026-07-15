@@ -4,15 +4,19 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarClock, Plus } from "lucide-react";
 import type { EstadoCompetencia } from "@/lib/domain/types";
-import { listarCompetencias } from "@/lib/mocks/competencies";
+import type { CompetenciaDetalhe } from "@/lib/domain/competency";
 import { formatBRL, formatCompetencia } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { CompetencyStatusBadge } from "./CompetencyStatusBadge";
 
-export function CompetencyListScreen() {
-  const todas = useMemo(() => listarCompetencias(), []);
+export interface CompetencyListScreenProps {
+  detalhes: CompetenciaDetalhe[];
+}
+
+export function CompetencyListScreen({ detalhes }: CompetencyListScreenProps) {
+  const todas = detalhes;
   const [filtro, setFiltro] = useState<EstadoCompetencia | "todas">("todas");
 
   const estadosPresentes = useMemo(

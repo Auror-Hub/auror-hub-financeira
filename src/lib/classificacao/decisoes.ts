@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { reabrirSeFechada } from "@/lib/competencias/reabertura";
 
 async function proximaVersao(
   supabase: Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"],
@@ -89,6 +90,8 @@ export async function corrigirClassificacao(lancamentoId: string, correcao: Corr
   if (!correcao.categoriaId) throw new Error("Categoria não pode ficar em branco.");
   if (!correcao.objetivoId) throw new Error("Objetivo não pode ficar em branco.");
 
+  await reabrirSeFechada(supabase, perfilId, lancamentoId);
+
   const proposta = await ultimaProposta(supabase, lancamentoId);
 
   const versao = await proximaVersao(supabase, lancamentoId);
@@ -117,6 +120,8 @@ export async function adicionarContexto(lancamentoId: string, contexto: string):
   const { supabase, user, perfilId } = await perfilDoUsuarioAutenticado();
 
   if (!contexto.trim()) throw new Error("Informe o contexto.");
+
+  await reabrirSeFechada(supabase, perfilId, lancamentoId);
 
   const proposta = await ultimaProposta(supabase, lancamentoId);
   if (!proposta?.categoria_id) throw new Error("A proposta não tem categoria — corrija a classificação antes de adicionar contexto.");
@@ -147,6 +152,8 @@ export async function marcarExcecao(lancamentoId: string, motivo: string): Promi
   const { supabase, user, perfilId } = await perfilDoUsuarioAutenticado();
 
   if (!motivo.trim()) throw new Error("Informe o motivo da exceção.");
+
+  await reabrirSeFechada(supabase, perfilId, lancamentoId);
 
   const proposta = await ultimaProposta(supabase, lancamentoId);
 
