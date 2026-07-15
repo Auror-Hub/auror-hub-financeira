@@ -16,6 +16,11 @@ function detectarTipoArquivo(nomeArquivo: string): "csv" | "xlsx" {
   return /\.xlsx?$/i.test(nomeArquivo) ? "xlsx" : "csv";
 }
 
+/** Extrai só os últimos 4 dígitos, ignorando máscara ("****1211", "**** 1211", "1211") — pra casar final de cartão de forma robusta ao formato da fatura. */
+function normalizarFinalCartao(valor: string): string {
+  return valor.replace(/\D/g, "").slice(-4);
+}
+
 export async function criarCartao(formData: FormData) {
   const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
 
@@ -254,7 +259,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
   if (colunaCartao) {
     const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id, ultimos_4_digitos").eq("perfil_id", perfilId);
     for (const c of cartoesDoPerfil ?? []) {
-      if (c.ultimos_4_digitos) mapaCartaoPorFinal.set(String(c.ultimos_4_digitos).trim(), c.id as string);
+      if (c.ultimos_4_digitos) mapaCartaoPorFinal.set(normalizarFinalCartao(String(c.ultimos_4_digitos)), c.id as string);
     }
 
     // Faturas exportadas costumam preencher a coluna do cartão só na primeira
@@ -310,7 +315,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
     let cartaoIdLinha = cartaoId;
     if (colunaCartao) {
       const finalCartaoBruto = linha.valores[colunaCartao]?.trim();
-      const resolvido = finalCartaoBruto ? mapaCartaoPorFinal.get(finalCartaoBruto) : undefined;
+      const resolvido = finalCartaoBruto ? mapaCartaoPorFinal.get(normalizarFinalCartao(finalCartaoBruto)) : undefined;
       if (!resolvido) {
         linhasInvalidas++;
         // Nunca gravar o final do cartão bruto no evento — só a posição da linha (SECURITY-AND-DATA.md).

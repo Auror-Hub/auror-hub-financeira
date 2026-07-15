@@ -45,10 +45,11 @@ export function parseValorMonetario(bruto: string, formato: "BR" | "US"): number
   if (texto.startsWith("(") && texto.endsWith(")")) {
     negativo = true;
     texto = texto.slice(1, -1);
-  }
-  if (texto.startsWith("-")) {
+  } else if (texto.includes("-")) {
+    // Cobre tanto "-1.234,56" quanto "R$ -1,234.56" (símbolo de moeda antes
+    // do sinal) — sem isso, o replace abaixo apaga o "-" e o sinal se perde.
     negativo = true;
-    texto = texto.slice(1);
+    texto = texto.replace("-", "");
   }
 
   texto = texto.replace(/[^\d.,]/g, "");
