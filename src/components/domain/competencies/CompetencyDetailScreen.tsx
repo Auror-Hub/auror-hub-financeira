@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Inbox, Lightbulb, Lock, RotateCcw } from "lucide-react";
+import { FileText, Inbox, Lightbulb, Lock, RotateCcw } from "lucide-react";
 import type { CompetenciaDetalhe, MotivoReabertura } from "@/lib/domain/competency";
 import { fecharCompetencia, reabrirCompetencia } from "@/lib/competencias/acoes";
 import { formatBRL, formatCompetencia, formatData } from "@/lib/format";
@@ -16,7 +16,12 @@ import { CompetencyStatusBadge } from "./CompetencyStatusBadge";
 import { CloseCompetencyModal } from "./CloseCompetencyModal";
 import { ReopenCompetencyModal } from "./ReopenCompetencyModal";
 
-export function CompetencyDetailScreen({ detalheInicial: detalhe }: { detalheInicial: CompetenciaDetalhe }) {
+export interface CompetencyDetailScreenProps {
+  detalheInicial: CompetenciaDetalhe;
+  versaoRelatorioId?: string;
+}
+
+export function CompetencyDetailScreen({ detalheInicial: detalhe, versaoRelatorioId }: CompetencyDetailScreenProps) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -169,9 +174,18 @@ export function CompetencyDetailScreen({ detalheInicial: detalhe }: { detalheIni
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader title="Relatório" />
-            {detalhe.relatorioDisponivel ? (
+            {versaoRelatorioId ? (
+              <Link
+                href={`/relatorios/${versaoRelatorioId}`}
+                className="flex items-center gap-2 text-base text-action-primary hover:underline"
+              >
+                <FileText size={16} strokeWidth={1.75} />
+                Ver relatório executivo
+              </Link>
+            ) : detalhe.relatorioDisponivel ? (
               <p className="text-base text-text-secondary">
-                Snapshot consolidado disponível (gerado ao fechar). Relatório executivo narrado (Agente Narrador) chega na Fase 7.
+                Snapshot consolidado disponível, mas o relatório executivo ainda não foi gerado (a geração é automática e
+                não bloqueia o fechamento — pode ter falhado; tente reabrir e fechar novamente).
               </p>
             ) : (
               <p className="text-base text-text-muted">Gerado automaticamente ao fechar a competência.</p>

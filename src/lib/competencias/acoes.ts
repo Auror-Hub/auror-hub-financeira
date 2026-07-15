@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { reabrirCompetenciaInterno, registrarAuditoriaCompetencia } from "./reabertura";
 import { gerarInsights } from "@/lib/analise/motor";
+import { carregarInsightsDaCompetencia } from "@/lib/analise/consulta";
+import { gerarRelatorio } from "@/lib/relatorios/narrador";
 
 /**
  * Fecha a competência: bloqueia se houver lançamento sem decisão registrada
@@ -23,7 +25,7 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
 
   const { data: lancamentosRaw, error: errL } = await supabase
     .from("lancamentos_brutos")
-    .select("id, valor")
+    .select("id, valor, fornecedor_original")
     .eq("competencia_calculada", competencia.mes_referencia as string);
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
   const lancamentos = lancamentosRaw ?? [];
@@ -98,11 +100,17 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
     .single();
   if (errFechamento || !fechamento) throw new Error("Falha ao gravar fechamento: " + (errFechamento?.message ?? "erro desconhecido"));
 
+  const maioresDespesas = [...lancamentos]
+    .sort((a, b) => Math.abs(b.valor as number) - Math.abs(a.valor as number))
+    .slice(0, 5)
+    .map((l) => ({ fornecedor: l.fornecedor_original as string, valor: l.valor as number }));
+
   const dadosCongelados = {
     totalLancamentos: lancamentos.length,
     totalConsolidado,
     quebraPorCategoria,
     quebraPorObjetivo,
+    maioresDespesas,
   };
 
   const { data: snapshot, error: errSnapshot } = await supabase
@@ -123,6 +131,14 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
     await gerarInsights(supabase, perfilId, competenciaId, snapshot.id as string, competencia.mes_referencia as string, dadosCongelados);
   } catch (e) {
     console.error("Falha ao gerar insights (Fase 6):", e);
+  }
+
+  // Agente Narrador (Fase 7) — mesma disciplina best-effort do Analista.
+  try {
+    const { insights, recomendacoes } = await carregarInsightsDaCompetencia(competenciaId);
+    await gerarRelatorio(supabase, competenciaId, competencia.mes_referencia as string, snapshot.id as string, dadosCongelados, insights, recomendacoes);
+  } catch (e) {
+    console.error("Falha ao gerar relatório (Fase 7):", e);
   }
 
   revalidatePath("/competencias");
