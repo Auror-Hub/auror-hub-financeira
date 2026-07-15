@@ -18,6 +18,7 @@ export interface CartaoOpcao {
   id: string;
   instituicao: string;
   apelido: string | null;
+  tipo: "cartao" | "conta";
 }
 
 type Etapa = "selecionar" | "mapear" | "resultado";

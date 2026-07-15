@@ -9,9 +9,11 @@ import {
   adicionarContexto,
   confirmarClassificacao,
   corrigirClassificacao,
+  corrigirTodosDoFornecedor,
   marcarExcecao,
   type CorrecaoClassificacao,
 } from "@/lib/classificacao/decisoes";
+import { criarRegraManual } from "@/lib/regras/acoes";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ReviewCard } from "./ReviewCard";
@@ -112,6 +114,21 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
 
   function corrigir(id: string, correcao: CorrecaoClassificacao) {
     executarAcao(() => corrigirClassificacao(id, correcao), () => setItemAbertoId(null));
+  }
+
+  function corrigirTodos(fornecedorNormalizado: string, correcao: CorrecaoClassificacao) {
+    executarAcao(() => corrigirTodosDoFornecedor(fornecedorNormalizado, correcao), () => setItemAbertoId(null));
+  }
+
+  function criarRegraDireta(fornecedorNormalizado: string, categoriaId: string, objetivoId: string) {
+    executarAcao(() => {
+      const formData = new FormData();
+      formData.set("fornecedorTexto", fornecedorNormalizado);
+      formData.set("categoriaId", categoriaId);
+      formData.set("objetivoId", objetivoId);
+      formData.set("confianca", "0.9");
+      return criarRegraManual(formData);
+    }, () => setItemAbertoId(null));
   }
 
   function excecao(id: string, motivo: string) {
@@ -249,6 +266,8 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
         onClose={() => setItemAbertoId(null)}
         onConfirmar={() => itemAberto && confirmar(itemAberto.lancamento.id)}
         onCorrigir={(correcao) => itemAberto && corrigir(itemAberto.lancamento.id, correcao)}
+        onCorrigirTodosDoFornecedor={(fornecedorNormalizado, correcao) => corrigirTodos(fornecedorNormalizado, correcao)}
+        onCriarRegraDireta={(fornecedorNormalizado, categoriaId, objetivoId) => criarRegraDireta(fornecedorNormalizado, categoriaId, objetivoId)}
         onExcecao={(motivo) => itemAberto && excecao(itemAberto.lancamento.id, motivo)}
         onAdicionarContexto={(texto) => itemAberto && contexto(itemAberto.lancamento.id, texto)}
         onAdiar={() => itemAberto && adiar(itemAberto.lancamento.id)}

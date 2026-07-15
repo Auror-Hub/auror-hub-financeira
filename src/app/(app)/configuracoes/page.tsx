@@ -13,7 +13,7 @@ export default async function ConfiguracoesPage() {
   const { data: perfil } = await supabase.from("perfis").select("id").eq("usuario_id", user!.id).single();
   const { data: cartoes } = await supabase
     .from("cartoes")
-    .select("id, instituicao, apelido, ultimos_4_digitos, ativo")
+    .select("id, instituicao, apelido, tipo, ultimos_4_digitos, ativo")
     .eq("perfil_id", perfil?.id ?? "");
 
   return (
@@ -21,22 +21,22 @@ export default async function ConfiguracoesPage() {
       <PlaceholderScreen
         title="Configurações"
         icon={Settings}
-        note="Preferências gerais ainda não foram implementadas. Cartões (BE-2) e conta (BE-1) já são reais."
+        note="Preferências gerais ainda não foram implementadas. Cartões e contas (BE-2) já são reais."
       />
 
       <Card>
-        <CardHeader title="Cartões" count={cartoes?.length ?? 0} />
+        <CardHeader title="Cartões e contas" count={cartoes?.length ?? 0} />
         <ul className="flex flex-col divide-y divide-border-subtle">
           {(cartoes ?? []).map((c) => (
             <li key={c.id} className="flex items-center justify-between py-2">
               <span className="text-base text-text-primary">{c.apelido || c.instituicao}</span>
               <span className="text-sm text-text-muted">
-                {c.instituicao}
+                {c.tipo === "conta" ? "Conta" : "Cartão"} · {c.instituicao}
                 {c.ultimos_4_digitos ? ` · •••• ${c.ultimos_4_digitos}` : ""}
               </span>
             </li>
           ))}
-          {(cartoes ?? []).length === 0 && <li className="py-2 text-base text-text-muted">Nenhum cartão cadastrado ainda.</li>}
+          {(cartoes ?? []).length === 0 && <li className="py-2 text-base text-text-muted">Nenhum cartão ou conta cadastrada ainda.</li>}
         </ul>
       </Card>
 

@@ -12,6 +12,7 @@ export interface CartaoOpcao {
   id: string;
   instituicao: string;
   apelido: string | null;
+  tipo: "cartao" | "conta";
 }
 
 export interface LancamentoManualFormProps {
@@ -78,7 +79,7 @@ export function LancamentoManualForm({ cartoes, categorias, subcategoriasPorCate
           >
             {cartoes.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.apelido || c.instituicao}
+                {c.apelido || c.instituicao} ({c.tipo === "conta" ? "conta" : "cartão"})
               </option>
             ))}
           </select>

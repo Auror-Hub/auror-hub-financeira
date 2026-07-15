@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Pencil, MessageSquarePlus, ShieldAlert } from "lucide-react";
 import type { ItemFila } from "@/lib/domain/inbox";
-import type { CorrecaoClassificacao } from "@/lib/classificacao/decisoes";
+import type { CorrecaoClassificacao, PadraoDivergente } from "@/lib/classificacao/decisoes";
+import { detectarDesvioDePadrao } from "@/lib/classificacao/decisoes";
 import { formatBRL, formatData } from "@/lib/format";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
@@ -20,6 +21,8 @@ export interface TransactionDrawerProps {
   onClose: () => void;
   onConfirmar: () => void;
   onCorrigir: (correcao: CorrecaoClassificacao) => void;
+  onCorrigirTodosDoFornecedor: (fornecedorNormalizado: string, correcao: CorrecaoClassificacao) => void;
+  onCriarRegraDireta: (fornecedorNormalizado: string, categoriaId: string, objetivoId: string) => void;
   onExcecao: (motivo: string) => void;
   onAdicionarContexto: (contexto: string) => void;
   onAdiar: () => void;
@@ -38,6 +41,8 @@ export function TransactionDrawer({
   onClose,
   onConfirmar,
   onCorrigir,
+  onCorrigirTodosDoFornecedor,
+  onCriarRegraDireta,
   onExcecao,
   onAdicionarContexto,
   onAdiar,
@@ -49,6 +54,9 @@ export function TransactionDrawer({
   const [objetivoId, setObjetivoId] = useState("");
   const [motivoExcecao, setMotivoExcecao] = useState("");
   const [contexto, setContexto] = useState("");
+  const [desvio, setDesvio] = useState<PadraoDivergente | null>(null);
+  const [correcaoPendente, setCorrecaoPendente] = useState<CorrecaoClassificacao | null>(null);
+  const [verificandoDesvio, setVerificandoDesvio] = useState(false);
 
   if (!item) return null;
   const { lancamento, proposta } = item;
@@ -59,6 +67,31 @@ export function TransactionDrawer({
     setObjetivoId("");
     setMotivoExcecao("");
     setContexto("");
+    setDesvio(null);
+    setCorrecaoPendente(null);
+  }
+
+  async function tentarSalvarCorrecao() {
+    const correcaoFinal: CorrecaoClassificacao = {
+      categoriaId: categoriaId || proposta.dimensoes.categoria || "",
+      subcategoriaId: proposta.dimensoes.subcategoria,
+      objetivoId: objetivoId || proposta.dimensoes.objetivo || "",
+      contexto: proposta.contextoSugerido,
+    };
+
+    setVerificandoDesvio(true);
+    try {
+      const padrao = await detectarDesvioDePadrao(lancamento.id, correcaoFinal.categoriaId);
+      if (padrao) {
+        setDesvio(padrao);
+        setCorrecaoPendente(correcaoFinal);
+      } else {
+        onCorrigir(correcaoFinal);
+        resetModo();
+      }
+    } finally {
+      setVerificandoDesvio(false);
+    }
   }
 
   return (
@@ -166,7 +199,7 @@ export function TransactionDrawer({
           </div>
         )}
 
-        {modo === "corrigir" && (
+        {modo === "corrigir" && !desvio && (
           <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
             <span className="eyebrow">Corrigir categoria e objetivo</span>
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
@@ -202,24 +235,58 @@ export function TransactionDrawer({
               </select>
             </label>
             <div className="flex gap-2">
+              <Button variant="primary" size="sm" disabled={pendente || verificandoDesvio} onClick={tentarSalvarCorrecao}>
+                {verificandoDesvio ? "Verificando..." : "Salvar correção"}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={resetModo}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {modo === "corrigir" && desvio && correcaoPendente && (
+          <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
+            <span className="eyebrow">Esse fornecedor costuma ser {desvio.categoriaAtualRotulo}</span>
+            <p className="text-sm text-text-secondary">
+              Você está classificando &ldquo;{item.fornecedorNomeOriginal}&rdquo; de um jeito diferente do padrão anterior. O que você quer fazer?
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pendente}
+                onClick={() => {
+                  onCorrigir(correcaoPendente);
+                  resetModo();
+                }}
+              >
+                Só este lançamento
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pendente}
+                onClick={() => {
+                  onCorrigirTodosDoFornecedor(desvio.fornecedorNormalizado, correcaoPendente);
+                  resetModo();
+                }}
+              >
+                Todos os lançamentos passados desse fornecedor
+              </Button>
               <Button
                 variant="primary"
                 size="sm"
                 disabled={pendente}
                 onClick={() => {
-                  onCorrigir({
-                    categoriaId: categoriaId || proposta.dimensoes.categoria || "",
-                    subcategoriaId: proposta.dimensoes.subcategoria,
-                    objetivoId: objetivoId || proposta.dimensoes.objetivo || "",
-                    contexto: proposta.contextoSugerido,
-                  });
+                  onCriarRegraDireta(desvio.fornecedorNormalizado, correcaoPendente.categoriaId, correcaoPendente.objetivoId);
                   resetModo();
                 }}
               >
-                Salvar correção
+                Nova regra para os próximos lançamentos
               </Button>
-              <Button variant="ghost" size="sm" onClick={resetModo}>
-                Cancelar
+              <Button variant="ghost" size="sm" onClick={() => setDesvio(null)}>
+                Voltar
               </Button>
             </div>
           </div>

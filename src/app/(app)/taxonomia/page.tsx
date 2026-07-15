@@ -1,6 +1,7 @@
-import { Tags } from "lucide-react";
-import { PlaceholderScreen } from "@/components/common/PlaceholderScreen";
+import { carregarTodosOsTermos } from "@/lib/taxonomia/consulta";
+import { TaxonomyManagerScreen } from "@/components/domain/taxonomia/TaxonomyManagerScreen";
 
-export default function TaxonomiaPage() {
-  return <PlaceholderScreen title="Taxonomia" icon={Tags} />;
+export default async function TaxonomiaPage() {
+  const termos = await carregarTodosOsTermos();
+  return <TaxonomyManagerScreen termos={termos} />;
 }

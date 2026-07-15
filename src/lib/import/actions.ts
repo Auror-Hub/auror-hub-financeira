@@ -21,7 +21,8 @@ export async function criarCartao(formData: FormData) {
 
   const instituicao = String(formData.get("instituicao") ?? "").trim();
   const apelido = String(formData.get("apelido") ?? "").trim() || null;
-  const ultimos4 = String(formData.get("ultimos4") ?? "").trim() || null;
+  const tipo = String(formData.get("tipo") ?? "cartao") === "conta" ? "conta" : "cartao";
+  const ultimos4 = tipo === "cartao" ? String(formData.get("ultimos4") ?? "").trim() || null : null;
 
   if (!instituicao) throw new Error("Instituição é obrigatória.");
 
@@ -29,6 +30,7 @@ export async function criarCartao(formData: FormData) {
     perfil_id: perfilId,
     instituicao,
     apelido,
+    tipo,
     ultimos_4_digitos: ultimos4,
   });
   if (error) throw new Error(error.message);
