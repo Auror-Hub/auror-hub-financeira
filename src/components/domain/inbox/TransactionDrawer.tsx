@@ -17,6 +17,7 @@ export interface TransactionDrawerProps {
   pendente: boolean;
   rotulos: Record<string, string>;
   categorias: { id: string; rotulo: string }[];
+  subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
   onClose: () => void;
   onConfirmar: () => void;
@@ -37,6 +38,7 @@ export function TransactionDrawer({
   pendente,
   rotulos,
   categorias,
+  subcategoriasPorCategoria,
   objetivos,
   onClose,
   onConfirmar,
@@ -51,6 +53,7 @@ export function TransactionDrawer({
 }: TransactionDrawerProps) {
   const [modo, setModo] = useState<Modo>("detalhe");
   const [categoriaId, setCategoriaId] = useState("");
+  const [subcategoriaId, setSubcategoriaId] = useState("");
   const [objetivoId, setObjetivoId] = useState("");
   const [motivoExcecao, setMotivoExcecao] = useState("");
   const [contexto, setContexto] = useState("");
@@ -64,6 +67,7 @@ export function TransactionDrawer({
   function resetModo() {
     setModo("detalhe");
     setCategoriaId("");
+    setSubcategoriaId("");
     setObjetivoId("");
     setMotivoExcecao("");
     setContexto("");
@@ -71,10 +75,18 @@ export function TransactionDrawer({
     setCorrecaoPendente(null);
   }
 
+  function alterarCategoria(novaCategoriaId: string) {
+    setCategoriaId(novaCategoriaId);
+    setSubcategoriaId("");
+  }
+
+  const categoriaEfetivaId = categoriaId || proposta.dimensoes.categoria || "";
+  const subcategoriasDisponiveis = subcategoriasPorCategoria[categoriaEfetivaId] ?? [];
+
   async function tentarSalvarCorrecao() {
     const correcaoFinal: CorrecaoClassificacao = {
-      categoriaId: categoriaId || proposta.dimensoes.categoria || "",
-      subcategoriaId: proposta.dimensoes.subcategoria,
+      categoriaId: categoriaEfetivaId,
+      subcategoriaId: subcategoriaId || undefined,
       objetivoId: objetivoId || proposta.dimensoes.objetivo || "",
       contexto: proposta.contextoSugerido,
     };
@@ -201,18 +213,38 @@ export function TransactionDrawer({
 
         {modo === "corrigir" && !desvio && (
           <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
-            <span className="eyebrow">Corrigir categoria e objetivo</span>
+            <span className="eyebrow">Corrigir categoria, subcategoria e objetivo</span>
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
               Categoria
               <select
                 value={categoriaId}
-                onChange={(e) => setCategoriaId(e.target.value)}
+                onChange={(e) => alterarCategoria(e.target.value)}
                 className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
               >
                 <option value="">
                   {(proposta.dimensoes.categoria && rotulos[proposta.dimensoes.categoria]) ?? "Selecionar"} (sugerido)
                 </option>
                 {categorias.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.rotulo}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-text-secondary">
+              Subcategoria
+              <select
+                value={subcategoriaId}
+                onChange={(e) => setSubcategoriaId(e.target.value)}
+                disabled={subcategoriasDisponiveis.length === 0}
+                className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary disabled:opacity-50"
+              >
+                <option value="">
+                  {subcategoriasDisponiveis.length === 0
+                    ? "Nenhuma subcategoria pra esta categoria"
+                    : (proposta.dimensoes.subcategoria && rotulos[proposta.dimensoes.subcategoria]) ?? "Nenhuma"}
+                </option>
+                {subcategoriasDisponiveis.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.rotulo}
                   </option>

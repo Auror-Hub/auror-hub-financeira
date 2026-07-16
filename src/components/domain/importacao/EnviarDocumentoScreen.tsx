@@ -37,6 +37,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
   const [erro, setErro] = useState<string | null>(null);
 
   const [cartaoId, setCartaoId] = useState(cartoes[0]?.id ?? "");
+  const [competenciaFatura, setCompetenciaFatura] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [analise, setAnalise] = useState<AnalisarArquivoResultado | null>(null);
   const [resultado, setResultado] = useState<ProcessarImportacaoResultado | null>(null);
@@ -124,6 +125,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
         const formData = new FormData();
         formData.set("arquivo", arquivo);
         formData.set("cartaoId", cartaoId);
+        formData.set("competenciaFatura", competenciaFatura);
         formData.set("aba", aba);
         formData.set("linhasParaPular", String(linhasParaPular));
         formData.set("delimitador", delimitador);
@@ -150,6 +152,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
 
   function reiniciar() {
     setEtapa("selecionar");
+    setCompetenciaFatura("");
     setArquivo(null);
     setAnalise(null);
     setResultado(null);
@@ -205,6 +208,19 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            Competência da fatura
+            <input
+              type="month"
+              value={competenciaFatura}
+              onChange={(e) => setCompetenciaFatura(e.target.value)}
+              className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+            />
+            <span className="text-xs text-text-muted">
+              Mês de fechamento desta fatura — todo lançamento do arquivo entra nesta competência, mesmo parcelas com data de compra
+              de meses anteriores.
+            </span>
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
             Arquivo
             <input
               type="file"
@@ -217,7 +233,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
             variant="primary"
             size="sm"
             className="w-fit"
-            disabled={!arquivo || !cartaoId || pendente}
+            disabled={!arquivo || !cartaoId || !competenciaFatura || pendente}
             onClick={() => reanalisar()}
           >
             {pendente ? "Analisando..." : "Analisar arquivo"}

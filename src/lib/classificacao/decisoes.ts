@@ -204,6 +204,45 @@ export async function corrigirTodosDoFornecedor(fornecedorNormalizado: string, c
   revalidatePath("/historico");
 }
 
+/**
+ * Tópico B (brainstorm 3): edição na Revisão em Lote — aplica a mesma
+ * correção a um conjunto explícito de lançamentos (o grupo selecionado no
+ * painel), em vez de aceitar a proposta da IA como estava. Nunca sobrescreve
+ * — cada lançamento ganha uma nova versão de decisão.
+ */
+export async function corrigirLote(ids: string[], correcao: CorrecaoClassificacao): Promise<void> {
+  const { supabase, user, perfilId } = await perfilDoUsuarioAutenticado();
+
+  if (!correcao.categoriaId) throw new Error("Categoria não pode ficar em branco.");
+  if (!correcao.objetivoId) throw new Error("Objetivo não pode ficar em branco.");
+  if (ids.length === 0) return;
+
+  for (const id of ids) {
+    await reabrirSeFechada(supabase, perfilId, id);
+    const proposta = await ultimaProposta(supabase, id);
+    const versao = await proximaVersao(supabase, id);
+    const { error } = await supabase.from("classificacao_decisoes").insert({
+      lancamento_id: id,
+      proposta_anterior_id: proposta?.id ?? null,
+      categoria_id: correcao.categoriaId,
+      subcategoria_id: correcao.subcategoriaId ?? null,
+      objetivo_id: correcao.objetivoId,
+      contexto: correcao.contexto ?? null,
+      fornecedor_id: proposta?.fornecedor_sugerido_id ?? null,
+      origem_da_decisao: "manual",
+      status: "corrigida",
+      versao,
+    });
+    if (error) throw new Error("Falha ao corrigir lançamento em lote: " + error.message);
+
+    await supabase.from("eventos_revisao").insert({ lancamento_id: id, tipo: "alterou", usuario_id: user.id });
+    await registrarAuditoria(supabase, perfilId, "lancamento_bruto", id, "decisão", { status: "corrigida", origem: "revisao_em_lote" });
+  }
+
+  revalidatePath("/caixa-de-entrada");
+  revalidatePath("/historico");
+}
+
 /** Grava uma correção manual (usuário alterou categoria/subcategoria/objetivo/contexto em relação à proposta). */
 export async function corrigirClassificacao(lancamentoId: string, correcao: CorrecaoClassificacao): Promise<void> {
   const { supabase, user, perfilId } = await perfilDoUsuarioAutenticado();

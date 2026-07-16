@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import {
-  calcularCompetencia,
   calcularHashArquivo,
   calcularIdentificadorDeduplicacao,
   parseCsvBruto,
@@ -162,6 +161,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
 
   const arquivo = formData.get("arquivo") as File | null;
   const cartaoId = String(formData.get("cartaoId") ?? "");
+  const competenciaFatura = String(formData.get("competenciaFatura") ?? "");
   const aba = String(formData.get("aba") ?? "") || undefined;
   const linhasParaPular = Number(formData.get("linhasParaPular") ?? 0) || 0;
   const delimitador = String(formData.get("delimitador") ?? ",");
@@ -180,6 +180,9 @@ export async function processarImportacao(formData: FormData): Promise<Processar
 
   if (!arquivo || !cartaoId || !colunaData || !colunaDescricao) {
     throw new Error("Preencha o cartão e o mapeamento de colunas obrigatório.");
+  }
+  if (!/^\d{4}-\d{2}$/.test(competenciaFatura)) {
+    throw new Error("Informe a competência da fatura (mês de fechamento).");
   }
   if (modoValor === "unica" && !colunaValor) {
     throw new Error("Selecione a coluna de valor.");
@@ -340,7 +343,11 @@ export async function processarImportacao(formData: FormData): Promise<Processar
       continue;
     }
 
-    const competencia = calcularCompetencia(dataIso);
+    // Tópico A (brainstorm 3): a competência é sempre a escolhida no upload
+    // (mês de fechamento da fatura), nunca calculada a partir da data da
+    // linha — resolve parcelas que trazem a data da compra original, não a
+    // data em que aquela parcela específica foi cobrada.
+    const competencia = competenciaFatura;
     const idDedup = calcularIdentificadorDeduplicacao({
       data: dataIso,
       valor: valorCentavos,

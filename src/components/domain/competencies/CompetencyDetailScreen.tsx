@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Inbox, Lightbulb, Lock, RotateCcw } from "lucide-react";
+import { ArrowLeft, FileText, Inbox, Lightbulb, Lock, RotateCcw } from "lucide-react";
 import type { CompetenciaDetalhe, MotivoReabertura } from "@/lib/domain/competency";
 import { fecharCompetencia, reabrirCompetencia } from "@/lib/competencias/acoes";
 import { formatBRL, formatCompetencia, formatData } from "@/lib/format";
@@ -62,6 +62,10 @@ export function CompetencyDetailScreen({ detalheInicial: detalhe, versaoRelatori
 
   return (
     <div className="flex flex-col gap-6">
+      <Link href="/competencias" className="flex w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text-primary">
+        <ArrowLeft size={14} strokeWidth={1.75} />
+        Competências
+      </Link>
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <span className="eyebrow">Competência</span>

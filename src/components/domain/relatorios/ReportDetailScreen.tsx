@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import type { RelatorioVersaoDetalhe } from "@/lib/relatorios/consulta";
 import { formatCompetencia, formatData } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -26,6 +26,10 @@ export function ReportDetailScreen({ detalhe }: ReportDetailScreenProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      <Link href="/relatorios" className="flex w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text-primary">
+        <ArrowLeft size={14} strokeWidth={1.75} />
+        Relatórios
+      </Link>
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <span className="eyebrow">Relatório executivo</span>

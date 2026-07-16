@@ -9,6 +9,7 @@ import {
   adicionarContexto,
   confirmarClassificacao,
   corrigirClassificacao,
+  corrigirLote,
   corrigirTodosDoFornecedor,
   marcarExcecao,
   type CorrecaoClassificacao,
@@ -33,11 +34,12 @@ export interface InboxScreenProps {
   itens: ItemFila[];
   rotulos: Record<string, string>;
   categorias: { id: string; rotulo: string }[];
+  subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
   lancamentosSemProposta: number;
 }
 
-export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentosSemProposta }: InboxScreenProps) {
+export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCategoria, objetivos, lancamentosSemProposta }: InboxScreenProps) {
   const router = useRouter();
   const [pendenteClassificacao, startTransition] = useTransition();
   const [pendenteAcao, startAcaoTransition] = useTransition();
@@ -143,6 +145,10 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
     executarAcao(async () => {
       for (const id of ids) await confirmarClassificacao(id);
     }, () => setGrupoLoteAberto(null));
+  }
+
+  function editarGrupo(ids: string[], correcao: CorrecaoClassificacao) {
+    executarAcao(() => corrigirLote(ids, correcao), () => setGrupoLoteAberto(null));
   }
 
   function gerarPropostas() {
@@ -262,6 +268,7 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
         pendente={pendenteAcao}
         rotulos={rotulos}
         categorias={categorias}
+        subcategoriasPorCategoria={subcategoriasPorCategoria}
         objetivos={objetivos}
         onClose={() => setItemAbertoId(null)}
         onConfirmar={() => itemAberto && confirmar(itemAberto.lancamento.id)}
@@ -285,8 +292,12 @@ export function InboxScreen({ itens, rotulos, categorias, objetivos, lancamentos
         itens={grupoLoteAberto ? (gruposLote.find(([id]) => id === grupoLoteAberto)?.[1] ?? []) : []}
         open={!!grupoLoteAberto}
         rotulos={rotulos}
+        categorias={categorias}
+        subcategoriasPorCategoria={subcategoriasPorCategoria}
+        objetivos={objetivos}
         onClose={() => setGrupoLoteAberto(null)}
         onAplicar={confirmarGrupo}
+        onEditarEAplicar={editarGrupo}
       />
     </div>
   );

@@ -28,6 +28,9 @@ export function LancamentoManualForm({ cartoes, categorias, subcategoriasPorCate
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
   const [categoriaId, setCategoriaId] = useState("");
+  const [data, setData] = useState("");
+  const [competencia, setCompetencia] = useState("");
+  const [competenciaTocada, setCompetenciaTocada] = useState(false);
 
   if (cartoes.length === 0) {
     return (
@@ -48,6 +51,9 @@ export function LancamentoManualForm({ cartoes, categorias, subcategoriasPorCate
         await criarLancamentoManual(formData);
         setSucesso(true);
         setCategoriaId("");
+        setData("");
+        setCompetencia("");
+        setCompetenciaTocada(false);
         router.refresh();
       } catch (e) {
         setErro(e instanceof Error ? e.message : "Falha ao gravar o lançamento.");
@@ -86,8 +92,33 @@ export function LancamentoManualForm({ cartoes, categorias, subcategoriasPorCate
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-text-secondary">
-          Data
-          <Input type="date" name="data" required />
+          Data (pagamento/lançamento)
+          <Input
+            type="date"
+            name="data"
+            required
+            value={data}
+            onChange={(e) => {
+              const novaData = e.target.value;
+              setData(novaData);
+              if (!competenciaTocada && novaData) setCompetencia(novaData.slice(0, 7));
+            }}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+          Competência
+          <input
+            type="month"
+            name="competencia"
+            required
+            value={competencia}
+            onChange={(e) => {
+              setCompetencia(e.target.value);
+              setCompetenciaTocada(true);
+            }}
+            className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">

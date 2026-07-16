@@ -15,6 +15,7 @@ export async function criarLancamentoManual(formData: FormData): Promise<void> {
 
   const cartaoId = String(formData.get("cartaoId") ?? "");
   const data = String(formData.get("data") ?? "");
+  const competenciaInformada = String(formData.get("competencia") ?? "");
   const fornecedor = String(formData.get("fornecedor") ?? "").trim();
   const valorReais = Number(formData.get("valor") ?? "");
   const categoriaId = String(formData.get("categoriaId") ?? "");
@@ -31,7 +32,11 @@ export async function criarLancamentoManual(formData: FormData): Promise<void> {
 
   // Convenção interna: gasto = negativo (mesma do motor de importação).
   const valorCentavos = -Math.round(valorReais * 100);
-  const competencia = calcularCompetencia(data);
+  // Tópico A (brainstorm 3): competência é sempre decidida por quem lança —
+  // default sugerido é o mês da data, mas nunca calculado à força (regime de
+  // competência pode divergir do regime de caixa, ex.: aluguel pago em julho
+  // referente a junho).
+  const competencia = /^\d{4}-\d{2}$/.test(competenciaInformada) ? competenciaInformada : calcularCompetencia(data);
   const idDedup = calcularIdentificadorDeduplicacao({ data, valor: valorCentavos, fornecedorOriginal: fornecedor, cartaoId });
 
   const { data: lancamento, error: errLancamento } = await supabase
