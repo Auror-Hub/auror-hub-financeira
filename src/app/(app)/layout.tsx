@@ -15,11 +15,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/entrar");
   }
 
-  const { data: perfil } = await supabase.from("perfis").select("nome_perfil").eq("usuario_id", user.id).single();
+  const { data: membro } = await supabase
+    .from("membros_familia")
+    .select("familias(nome)")
+    .eq("usuario_id", user.id)
+    .eq("status", "ativo")
+    .maybeSingle();
+
+  // Usuário autenticado sem família ativa (recém-cadastrado, ou pendente/recusado) — ADR-004.
+  if (!membro) {
+    redirect("/onboarding");
+  }
 
   const session = {
     userName: user.email ?? "Conta",
-    profileName: perfil?.nome_perfil ?? "Família Gama",
+    profileName: membro.familias?.[0]?.nome ?? "Acervo",
   };
 
   return (

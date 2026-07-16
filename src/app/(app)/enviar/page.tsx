@@ -1,16 +1,12 @@
-import { createClient } from "@/lib/supabase/server";
+import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { EnviarTabs } from "@/components/domain/importacao/EnviarTabs";
 
 export default async function EnviarPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: perfil } = await supabase.from("perfis").select("id").eq("usuario_id", user!.id).single();
+  const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
   const { data: cartoes } = await supabase
     .from("cartoes")
     .select("id, instituicao, apelido, tipo")
-    .eq("perfil_id", perfil?.id ?? "")
+    .eq("perfil_id", perfilId)
     .eq("ativo", true);
 
   const { data: taxonomia } = await supabase.from("taxonomia_termos").select("id, dimensao, termo_pai_id, rotulo").eq("status", "ativo");

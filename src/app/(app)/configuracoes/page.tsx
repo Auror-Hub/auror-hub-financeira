@@ -1,20 +1,19 @@
 import { Settings } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { PlaceholderScreen } from "@/components/common/PlaceholderScreen";
 import { SignOutButton } from "@/components/domain/auth/SignOutButton";
 import { AdicionarCartaoForm } from "@/components/domain/cartoes/AdicionarCartaoForm";
+import { FamiliaSection } from "@/components/domain/familia/FamiliaSection";
+import { carregarFamilia } from "@/lib/familia/consulta";
 import { Card, CardHeader } from "@/components/ui/Card";
 
 export default async function ConfiguracoesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: perfil } = await supabase.from("perfis").select("id").eq("usuario_id", user!.id).single();
+  const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
   const { data: cartoes } = await supabase
     .from("cartoes")
     .select("id, instituicao, apelido, tipo, ultimos_4_digitos, ativo")
-    .eq("perfil_id", perfil?.id ?? "");
+    .eq("perfil_id", perfilId);
+  const familia = await carregarFamilia();
 
   return (
     <div className="flex flex-col gap-4">
@@ -41,6 +40,8 @@ export default async function ConfiguracoesPage() {
       </Card>
 
       <AdicionarCartaoForm />
+
+      <FamiliaSection familia={familia} />
 
       <div>
         <SignOutButton />
