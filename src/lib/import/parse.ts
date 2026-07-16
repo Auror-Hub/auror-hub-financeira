@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import Papa from "papaparse";
+import { sanitizarCaracteresConfusiveis } from "./deteccao";
 
 export interface LinhaCsv {
   numeroLinha: number;
@@ -32,12 +33,7 @@ export function parseCsvBruto(conteudo: string, delimitador: string): ResultadoP
   return { cabecalhos: resultado.meta.fields ?? [], linhas, erros };
 }
 
-/**
- * Converte string de valor monetário para centavos inteiros.
- * 'BR' — "1.234,56" (ponto milhar, vírgula decimal). 'US' — "1,234.56".
- * Aceita valores negativos (estornos) e parênteses como negativo — "(50,00)".
- */
-export function parseValorMonetario(bruto: string, formato: "BR" | "US"): number | null {
+function parseValorMonetarioEstrito(bruto: string, formato: "BR" | "US"): number | null {
   let texto = bruto.trim();
   if (!texto) return null;
 
@@ -69,15 +65,22 @@ export function parseValorMonetario(bruto: string, formato: "BR" | "US"): number
 }
 
 /**
- * Converte string de data para ISO (AAAA-MM-DD), a partir de um formato
- * declarado no perfil de importação (ex.: "DD/MM/YYYY", "YYYY-MM-DD", "MM/DD/YYYY").
- * Para o formato "DD/MM" (sem ano — comum em faturas de cartão), delega para
- * `parseDataSemAno`, que exige uma data de referência.
+ * Converte string de valor monetário para centavos inteiros.
+ * 'BR' — "1.234,56" (ponto milhar, vírgula decimal). 'US' — "1,234.56".
+ * Aceita valores negativos (estornos) e parênteses como negativo — "(50,00)".
+ * Se o parse estrito falhar, tenta uma segunda vez sanitizando caracteres
+ * visualmente confundíveis (ex.: "O" no lugar de "0" — Insight de Produto,
+ * 2026-07-16) — nunca sobrescreve um valor que já era válido na primeira tentativa.
  */
-export function parseDataCsv(bruto: string, formato: string, dataReferenciaIso?: string): string | null {
-  const texto = bruto.trim();
-  if (!texto) return null;
+export function parseValorMonetario(bruto: string, formato: "BR" | "US"): number | null {
+  const resultado = parseValorMonetarioEstrito(bruto, formato);
+  if (resultado !== null) return resultado;
+  const sanitizado = sanitizarCaracteresConfusiveis(bruto);
+  if (sanitizado === bruto) return null;
+  return parseValorMonetarioEstrito(sanitizado, formato);
+}
 
+function parseDataCsvEstrito(texto: string, formato: string, dataReferenciaIso?: string): string | null {
   if (formato === "DD/MM") {
     return dataReferenciaIso ? parseDataSemAno(texto, dataReferenciaIso) : null;
   }
@@ -104,6 +107,25 @@ export function parseDataCsv(bruto: string, formato: string, dataReferenciaIso?:
   if (Number(dia) < 1 || Number(dia) > 31) return null;
 
   return `${ano}-${mes}-${dia}`;
+}
+
+/**
+ * Converte string de data para ISO (AAAA-MM-DD), a partir de um formato
+ * declarado no perfil de importação (ex.: "DD/MM/YYYY", "YYYY-MM-DD", "MM/DD/YYYY").
+ * Para o formato "DD/MM" (sem ano — comum em faturas de cartão), delega para
+ * `parseDataSemAno`, que exige uma data de referência. Se o parse estrito
+ * falhar, tenta uma segunda vez sanitizando caracteres visualmente
+ * confundíveis (ex.: "O" no lugar de "0" — Insight de Produto, 2026-07-16).
+ */
+export function parseDataCsv(bruto: string, formato: string, dataReferenciaIso?: string): string | null {
+  const texto = bruto.trim();
+  if (!texto) return null;
+
+  const resultado = parseDataCsvEstrito(texto, formato, dataReferenciaIso);
+  if (resultado !== null) return resultado;
+  const sanitizado = sanitizarCaracteresConfusiveis(texto);
+  if (sanitizado === texto) return null;
+  return parseDataCsvEstrito(sanitizado, formato, dataReferenciaIso);
 }
 
 /**

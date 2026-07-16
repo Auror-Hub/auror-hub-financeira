@@ -9,7 +9,8 @@ import {
   parseDataCsv,
   parseValorMonetario,
 } from "./parse";
-import { listarAbas, parseXlsxBruto } from "./parseXlsx";
+import { listarAbas, lerMatrizBruta, parseXlsxBruto } from "./parseXlsx";
+import { detectarLinhaCabecalho, detectarMapeamento, type MapeamentoDetectado } from "./deteccao";
 
 function detectarTipoArquivo(nomeArquivo: string): "csv" | "xlsx" {
   return /\.xlsx?$/i.test(nomeArquivo) ? "xlsx" : "csv";
@@ -70,6 +71,9 @@ export interface AnalisarArquivoResultado {
   totalLinhas: number;
   delimitadorDetectado: string;
   perfilExistente: PerfilExistenteResumo | null;
+  mapeamentoDetectado: MapeamentoDetectado;
+  /** Linha de cabeçalho detectada automaticamente (planilhas com metadado antes da tabela, ex.: fatura "paga" do Itaú) — null se não achou/não tentou. */
+  linhasParaPularSugerido: number | null;
 }
 
 /** Preview: lê cabeçalhos + amostra de linhas, sem persistir nada. Chamável de novo ao ajustar aba/linhas-a-pular. */
@@ -111,7 +115,32 @@ export async function analisarArquivo(formData: FormData): Promise<AnalisarArqui
   if (tipoArquivo === "xlsx") {
     const abas = listarAbas(buffer);
     const aba = abaSolicitada ?? abas[0] ?? "";
-    const { cabecalhos, linhas } = parseXlsxBruto(buffer, aba, linhasParaPular);
+
+    // Planilhas com linhas de metadado antes da tabela real (ex.: fatura
+    // "paga" do Itaú — nome, agência, conta, total pago antes do cabeçalho
+    // de verdade) fazem a detecção de coluna falhar se `linhasParaPular`
+    // estiver errado. Tenta sempre que o valor ainda está no default 0 —
+    // MESMO havendo um perfil salvo pra este cartão, porque o perfil pode
+    // ser de um formato de arquivo diferente do que está sendo enviado agora
+    // (ex.: perfil salvo de um CSV antigo, arquivo atual é XLSX — o cliente
+    // decide qual dos dois usar comparando tipoArquivo e se as colunas
+    // salvas ainda existem no arquivo atual, ver EnviarDocumentoScreen.tsx).
+    let linhasParaPularEfetivo = linhasParaPular;
+    let linhasParaPularSugerido: number | null = null;
+    if (linhasParaPular === 0) {
+      const matrizBruta = lerMatrizBruta(buffer, aba);
+      const linhaDetectada = detectarLinhaCabecalho(matrizBruta);
+      if (linhaDetectada !== null && linhaDetectada > 0) {
+        linhasParaPularSugerido = linhaDetectada;
+        linhasParaPularEfetivo = linhaDetectada;
+      }
+    }
+
+    const { cabecalhos, linhas } = parseXlsxBruto(buffer, aba, linhasParaPularEfetivo);
+    // Amostra maior só pra detecção (nunca exibida inteira na UI) — dá sinal
+    // estatístico suficiente pra desambiguar formato de data/moeda sem custo
+    // extra (é o mesmo parse que já tínhamos em mãos).
+    const amostraDeteccao = linhas.slice(0, 30).map((l) => l.valores);
     return {
       tipoArquivo,
       abasDisponiveis: abas,
@@ -121,6 +150,8 @@ export async function analisarArquivo(formData: FormData): Promise<AnalisarArqui
       totalLinhas: linhas.length,
       delimitadorDetectado: ",",
       perfilExistente,
+      mapeamentoDetectado: detectarMapeamento(cabecalhos, amostraDeteccao),
+      linhasParaPularSugerido,
     };
   }
 
@@ -129,6 +160,7 @@ export async function analisarArquivo(formData: FormData): Promise<AnalisarArqui
   const delimitadorDetectado = [";", "\t", ","].find((d) => primeiraLinha.includes(d)) ?? ",";
   const delimitadorUsado = String(formData.get("delimitador") ?? "") || delimitadorDetectado;
   const { cabecalhos, linhas } = parseCsvBruto(conteudo, delimitadorUsado);
+  const amostraDeteccao = linhas.slice(0, 30).map((l) => l.valores);
 
   return {
     tipoArquivo,
@@ -139,6 +171,8 @@ export async function analisarArquivo(formData: FormData): Promise<AnalisarArqui
     totalLinhas: linhas.length,
     delimitadorDetectado,
     perfilExistente,
+    mapeamentoDetectado: detectarMapeamento(cabecalhos, amostraDeteccao),
+    linhasParaPularSugerido: null,
   };
 }
 
@@ -154,6 +188,7 @@ export interface ProcessarImportacaoResultado {
   pagamentosIgnorados: number;
   duplicatasSinalizadas: number;
   totalExtraido: number;
+  colunasNaoReconhecidas: string[];
 }
 
 export async function processarImportacao(formData: FormData): Promise<ProcessarImportacaoResultado> {
@@ -282,6 +317,13 @@ export async function processarImportacao(formData: FormData): Promise<Processar
   let totalExtraido = 0;
   let duplicatasSinalizadas = 0;
 
+  // Rastreado por coluna (não por linha) pra sinalizar causa estrutural —
+  // Fase 2 do importador inteligente (Insight de Produto, 2026-07-16).
+  let tentativasColunaData = 0;
+  let falhasColunaData = 0;
+  let tentativasColunaValor = 0;
+  let falhasColunaValor = 0;
+
   for (const linha of linhas) {
     const dataBruta = linha.valores[colunaData];
     const descricaoBruta = linha.valores[colunaDescricao]?.trim();
@@ -298,10 +340,19 @@ export async function processarImportacao(formData: FormData): Promise<Processar
     }
 
     const dataIso = dataBruta ? parseDataCsv(dataBruta, formatoData, dataReferencia) : null;
+    if (dataBruta?.trim()) {
+      tentativasColunaData++;
+      if (!dataIso) falhasColunaData++;
+    }
 
     let valorCentavos: number | null;
     if (modoValor === "unica") {
       valorCentavos = colunaValor ? parseValorMonetario(linha.valores[colunaValor] ?? "", formatoMonetario) : null;
+      const valorBruto = colunaValor ? linha.valores[colunaValor]?.trim() : undefined;
+      if (valorBruto) {
+        tentativasColunaValor++;
+        if (valorCentavos === null) falhasColunaValor++;
+      }
     } else {
       const credito = colunaCredito ? parseValorMonetario(linha.valores[colunaCredito] ?? "", formatoMonetario) : null;
       const debito = colunaDebito ? parseValorMonetario(linha.valores[colunaDebito] ?? "", formatoMonetario) : null;
@@ -412,6 +463,37 @@ export async function processarImportacao(formData: FormData): Promise<Processar
     totalExtraido += valorCentavos;
   }
 
+  // Alerta por coluna (Fase 2, Insight de Produto 2026-07-16) — distinto de
+  // linha_invalida: sinaliza que a coluna em si provavelmente está mapeada
+  // errado (alta taxa de falha), não um punhado de linhas isoladas ruins.
+  // Só considera colunas com tentativas suficientes, pra não disparar alerta
+  // por ruído em amostras pequenas.
+  const LIMIAR_FALHA_COLUNA = 0.3;
+  const MINIMO_TENTATIVAS_COLUNA = 3;
+  const colunasNaoReconhecidas: string[] = [];
+
+  if (tentativasColunaData >= MINIMO_TENTATIVAS_COLUNA && falhasColunaData / tentativasColunaData > LIMIAR_FALHA_COLUNA) {
+    colunasNaoReconhecidas.push(colunaData);
+    await supabase.from("eventos_importacao").insert({
+      lote_id: lote.id,
+      tipo: "coluna_nao_reconhecida",
+      detalhe: `Coluna "${colunaData}" (mapeada como data): ${falhasColunaData} de ${tentativasColunaData} valores não reconhecidos no formato configurado.`,
+    });
+  }
+  if (
+    modoValor === "unica" &&
+    colunaValor &&
+    tentativasColunaValor >= MINIMO_TENTATIVAS_COLUNA &&
+    falhasColunaValor / tentativasColunaValor > LIMIAR_FALHA_COLUNA
+  ) {
+    colunasNaoReconhecidas.push(colunaValor);
+    await supabase.from("eventos_importacao").insert({
+      lote_id: lote.id,
+      tipo: "coluna_nao_reconhecida",
+      detalhe: `Coluna "${colunaValor}" (mapeada como valor): ${falhasColunaValor} de ${tentativasColunaValor} valores não reconhecidos no formato configurado.`,
+    });
+  }
+
   // 0 linhas válidas indica mapeamento de colunas errado, não uma fatura sem
   // lançamentos — marca como "falhou" em vez de "concluído" pra não travar
   // uma nova tentativa (dedup por hash+aba) nem "aprender" a configuração
@@ -470,5 +552,6 @@ export async function processarImportacao(formData: FormData): Promise<Processar
     pagamentosIgnorados,
     duplicatasSinalizadas,
     totalExtraido,
+    colunasNaoReconhecidas,
   };
 }

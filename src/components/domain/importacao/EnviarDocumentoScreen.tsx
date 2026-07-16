@@ -42,6 +42,9 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
   const [analise, setAnalise] = useState<AnalisarArquivoResultado | null>(null);
   const [resultado, setResultado] = useState<ProcessarImportacaoResultado | null>(null);
 
+  const [mapeamentoAutoAplicado, setMapeamentoAutoAplicado] = useState(false);
+  const [formularioExpandido, setFormularioExpandido] = useState(false);
+
   const [aba, setAba] = useState("");
   const [linhasParaPular, setLinhasParaPular] = useState(0);
   const [delimitador, setDelimitador] = useState(",");
@@ -102,12 +105,48 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
         setAba(resultadoAnalise.abaSelecionada);
         if (etapa === "selecionar") {
           setDelimitador(resultadoAnalise.delimitadorDetectado);
-          if (resultadoAnalise.perfilExistente) {
+          const perfil = resultadoAnalise.perfilExistente;
+          // Um perfil salvo é por cartão, não por formato de arquivo — o
+          // mesmo cartão pode receber um CSV num mês e um XLSX de layout
+          // totalmente diferente no outro (achado real: perfil salvo de um
+          // CSV antigo do Itaú sendo reaplicado cegamente numa fatura XLSX
+          // "paga" completamente diferente). Só usa o perfil se o tipo de
+          // arquivo bate E as colunas salvas ainda existem no arquivo atual
+          // — senão, é tratado como perfil obsoleto e cai na auto-detecção.
+          const perfilCompativel =
+            !!perfil &&
+            perfil.tipoArquivo === resultadoAnalise.tipoArquivo &&
+            resultadoAnalise.cabecalhos.includes(perfil.colunaData) &&
+            resultadoAnalise.cabecalhos.includes(perfil.colunaDescricao);
+
+          if (perfilCompativel && perfil) {
             aplicarPerfilExistente(resultadoAnalise);
-            if (resultadoAnalise.perfilExistente.tipoArquivo === "xlsx") {
-              setAba(resultadoAnalise.perfilExistente.aba ?? resultadoAnalise.abaSelecionada);
-              setLinhasParaPular(resultadoAnalise.perfilExistente.linhasParaPular);
+            if (perfil.tipoArquivo === "xlsx") {
+              setAba(perfil.aba ?? resultadoAnalise.abaSelecionada);
+              setLinhasParaPular(perfil.linhasParaPular);
             }
+          } else {
+            // Sem perfil salvo pra este cartão — tenta a auto-detecção
+            // (Insight de Produto, 2026-07-16). Só aplica o que a heurística
+            // realmente identificou com confiança; campo não detectado fica
+            // em branco pro usuário preencher manualmente.
+            if (resultadoAnalise.linhasParaPularSugerido !== null) {
+              // Planilha com linhas de metadado antes da tabela real (ex.:
+              // fatura "paga" do Itaú) — os cabeçalhos/amostra já vieram
+              // corretamente alinhados a partir dessa linha; só reflete o
+              // número aqui pra "Linhas de cabeçalho a pular" mostrar certo
+              // e o valor ser enviado corretamente na hora de confirmar.
+              setLinhasParaPular(resultadoAnalise.linhasParaPularSugerido);
+            }
+            const md = resultadoAnalise.mapeamentoDetectado;
+            if (md.colunaData) setColunaData(md.colunaData.valor);
+            if (md.colunaDescricao) setColunaDescricao(md.colunaDescricao.valor);
+            if (md.colunaValor) setColunaValor(md.colunaValor.valor);
+            if (md.formatoData) setFormatoData(md.formatoData.valor);
+            if (md.formatoMonetario) setFormatoMonetario(md.formatoMonetario.valor);
+            const totalmenteDetectado = !!(md.colunaData && md.colunaDescricao && md.colunaValor);
+            setMapeamentoAutoAplicado(totalmenteDetectado);
+            setFormularioExpandido(!totalmenteDetectado);
           }
         }
         setEtapa("mapear");
@@ -157,6 +196,8 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
     setAnalise(null);
     setResultado(null);
     setErro(null);
+    setMapeamentoAutoAplicado(false);
+    setFormularioExpandido(false);
     setAba("");
     setLinhasParaPular(0);
     setColunaData("");
@@ -241,7 +282,34 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
         </Card>
       )}
 
-      {etapa === "mapear" && analise && (
+      {etapa === "mapear" && analise && mapeamentoAutoAplicado && !formularioExpandido && (
+        <Card className="flex flex-col gap-3">
+          <CardHeader title="2. Mapeamento detectado automaticamente" count={`${analise.totalLinhas} linhas`} />
+          <div className="rounded-input border border-border-subtle bg-surface-secondary p-3 text-sm text-text-secondary">
+            <p>
+              Detectamos: data = &ldquo;{colunaData}&rdquo;, descrição = &ldquo;{colunaDescricao}&rdquo;, valor = &ldquo;
+              {colunaValor}&rdquo;, formato monetário {formatoMonetario === "BR" ? "brasileiro" : "americano"}.
+            </p>
+            <button
+              type="button"
+              onClick={() => setFormularioExpandido(true)}
+              className="mt-1 text-sm text-action-primary hover:underline"
+            >
+              Conferir ou trocar manualmente
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="primary" size="sm" disabled={!mapeamentoValido || pendente} onClick={confirmarImportacao}>
+              {pendente ? "Importando..." : "Confirmar importação"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={reiniciar}>
+              Cancelar
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {etapa === "mapear" && analise && (!mapeamentoAutoAplicado || formularioExpandido) && (
         <Card className="flex flex-col gap-4">
           <CardHeader title="2. Confira o mapeamento" count={`${analise.totalLinhas} linhas`} />
 
@@ -446,6 +514,11 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
             )}
             {resultado.duplicatasSinalizadas > 0 && (
               <Badge tone="terra">{resultado.duplicatasSinalizadas} possível(is) duplicata(s) sinalizada(s)</Badge>
+            )}
+            {resultado.colunasNaoReconhecidas.length > 0 && (
+              <Badge tone="terra">
+                Coluna(s) não reconhecida(s): {resultado.colunasNaoReconhecidas.join(", ")} — confira o mapeamento
+              </Badge>
             )}
           </div>
           <p className="text-sm text-text-muted">

@@ -19,6 +19,22 @@ function rotuloColuna(indice: number): string {
   return `Coluna ${rotulo}`;
 }
 
+/** Lê as primeiras linhas de uma aba sem interpretar cabeçalho nem aplicar corte — usado só pra detectar automaticamente onde a tabela real começa (linhas de metadado antes do cabeçalho, ex.: fatura "paga" do Itaú). */
+export function lerMatrizBruta(buffer: Buffer, aba: string, maxLinhas = 30): string[][] {
+  const workbook = XLSX.read(buffer, { cellDates: false });
+  const sheet = workbook.Sheets[aba];
+  if (!sheet) return [];
+
+  const matriz: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    range: 0,
+    defval: "",
+    raw: false,
+  });
+
+  return matriz.slice(0, maxLinhas).map((linha) => linha.map((v) => String(v ?? "")));
+}
+
 /**
  * Faz o parse de uma aba específica de um XLSX, pulando N linhas antes do
  * cabeçalho. Cabeçalhos em branco ou duplicados viram "Coluna A/B/C..." para
