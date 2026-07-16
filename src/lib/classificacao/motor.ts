@@ -237,9 +237,18 @@ const TAMANHO_LOTE_LLM = 50;
 export interface ResultadoClassificacao {
   propostas: PropostaGerada[];
   execucoesRegra: ExecucaoRegraParaGravar[];
+  /** Lançamentos que ainda aguardam classificação via IA — não processados nesta chamada (ver nota abaixo). */
+  llmRestantes: number;
 }
 
-/** Classifica um conjunto de lançamentos: Motor de Regras (Fase 4) → alias/padrão genérico (BE-3) → fallback em lote via IA. */
+/**
+ * Classifica um conjunto de lançamentos: Motor de Regras (Fase 4) → alias/padrão genérico (BE-3) → fallback via IA.
+ * O passo de IA processa só UM lote (`TAMANHO_LOTE_LLM`) por chamada — nunca todos de uma vez — porque uma
+ * importação grande (ex.: 180+ lançamentos novos, sem regra/alias ainda) exigiria várias chamadas sequenciais à
+ * API da Claude dentro de uma única invocação de função serverless, o que estoura o timeout da plataforma
+ * (visto na prática: "An unexpected response was received from the server"). O chamador (classificarLancamentosPendentes)
+ * repete a chamada enquanto `llmRestantes > 0`.
+ */
 export async function classificarLancamentos(
   lancamentos: LancamentoParaClassificar[],
   aliasesDoPerfil: AliasResolvido[],
@@ -258,7 +267,7 @@ export async function classificarLancamentos(
     else pendentesLlm.push(lancamento);
   }
 
-  if (pendentesLlm.length === 0) return { propostas, execucoesRegra };
+  if (pendentesLlm.length === 0) return { propostas, execucoesRegra, llmRestantes: 0 };
 
   const categorias = taxonomia.filter((t) => t.dimensao === "categoria");
   const objetivos = taxonomia.filter((t) => t.dimensao === "objetivo").map((t) => t.rotulo);
@@ -271,57 +280,55 @@ export async function classificarLancamentos(
   }
   const rotulosCategorias = categorias.map((c) => c.rotulo);
 
-  for (let i = 0; i < pendentesLlm.length; i += TAMANHO_LOTE_LLM) {
-    const lote = pendentesLlm.slice(i, i + TAMANHO_LOTE_LLM);
-    const itensParaLlm: ItemParaLlm[] = lote.map((l) => ({
-      id: l.id,
-      descricao: l.descricaoOriginal,
-      valorReais: l.valor / 100,
-      data: l.data,
-    }));
+  const lote = pendentesLlm.slice(0, TAMANHO_LOTE_LLM);
+  const itensParaLlm: ItemParaLlm[] = lote.map((l) => ({
+    id: l.id,
+    descricao: l.descricaoOriginal,
+    valorReais: l.valor / 100,
+    data: l.data,
+  }));
 
-    const resultado = await classificarLotePorLlm(itensParaLlm, rotulosCategorias, subcategoriasPorCategoria, objetivos);
+  const resultado = await classificarLotePorLlm(itensParaLlm, rotulosCategorias, subcategoriasPorCategoria, objetivos);
 
-    for (const lancamento of lote) {
-      const c = resultado.get(lancamento.id);
-      if (!c) {
-        propostas.push({
-          lancamentoId: lancamento.id,
-          fornecedorSugeridoId: null,
-          categoriaId: null,
-          subcategoriaId: null,
-          objetivoId: null,
-          contextoSugerido: null,
-          confiancaCategoria: null,
-          confiancaSubcategoria: null,
-          confiancaObjetivo: null,
-          confiancaGeral: 0,
-          justificativa: "A IA não retornou uma classificação para este lançamento — requer revisão manual.",
-          origem: "llm",
-        });
-        continue;
-      }
-
-      const categoria = taxonomiaIndex.buscar("categoria", c.categoria);
-      const subcategoria = taxonomiaIndex.buscar("subcategoria", c.subcategoria);
-      const objetivo = taxonomiaIndex.buscar("objetivo", c.objetivo);
-
+  for (const lancamento of lote) {
+    const c = resultado.get(lancamento.id);
+    if (!c) {
       propostas.push({
         lancamentoId: lancamento.id,
         fornecedorSugeridoId: null,
-        categoriaId: categoria?.id ?? null,
-        subcategoriaId: subcategoria?.id ?? null,
-        objetivoId: objetivo?.id ?? null,
-        contextoSugerido: c.contexto || null,
-        confiancaCategoria: categoria ? c.confiancaCategoria : null,
-        confiancaSubcategoria: subcategoria ? c.confiancaSubcategoria : null,
-        confiancaObjetivo: objetivo ? c.confiancaObjetivo : null,
-        confiancaGeral: (c.confiancaCategoria + c.confiancaSubcategoria + c.confiancaObjetivo) / 3,
-        justificativa: c.justificativa,
+        categoriaId: null,
+        subcategoriaId: null,
+        objetivoId: null,
+        contextoSugerido: null,
+        confiancaCategoria: null,
+        confiancaSubcategoria: null,
+        confiancaObjetivo: null,
+        confiancaGeral: 0,
+        justificativa: "A IA não retornou uma classificação para este lançamento — requer revisão manual.",
         origem: "llm",
       });
+      continue;
     }
+
+    const categoria = taxonomiaIndex.buscar("categoria", c.categoria);
+    const subcategoria = taxonomiaIndex.buscar("subcategoria", c.subcategoria);
+    const objetivo = taxonomiaIndex.buscar("objetivo", c.objetivo);
+
+    propostas.push({
+      lancamentoId: lancamento.id,
+      fornecedorSugeridoId: null,
+      categoriaId: categoria?.id ?? null,
+      subcategoriaId: subcategoria?.id ?? null,
+      objetivoId: objetivo?.id ?? null,
+      contextoSugerido: c.contexto || null,
+      confiancaCategoria: categoria ? c.confiancaCategoria : null,
+      confiancaSubcategoria: subcategoria ? c.confiancaSubcategoria : null,
+      confiancaObjetivo: objetivo ? c.confiancaObjetivo : null,
+      confiancaGeral: (c.confiancaCategoria + c.confiancaSubcategoria + c.confiancaObjetivo) / 3,
+      justificativa: c.justificativa,
+      origem: "llm",
+    });
   }
 
-  return { propostas, execucoesRegra };
+  return { propostas, execucoesRegra, llmRestantes: pendentesLlm.length - lote.length };
 }

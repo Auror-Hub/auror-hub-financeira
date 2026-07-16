@@ -11,22 +11,28 @@ export interface ClassificarPendentesResultado {
   totalProcessados: number;
   porRegra: number;
   porLlm: number;
+  /** >0 quando ainda há lançamentos aguardando IA — chame de novo até isso zerar (ver InboxScreen.gerarPropostas). */
+  restantes: number;
 }
 
-/** Gera propostas de classificação para todo lançamento do perfil que ainda não tem nenhuma. */
+/**
+ * Gera propostas de classificação para todo lançamento do perfil que ainda não tem nenhuma.
+ * Processa só um lote via IA por chamada (ver classificarLancamentos) — o chamador deve repetir
+ * enquanto `restantes > 0`.
+ */
 export async function classificarLancamentosPendentes(): Promise<ClassificarPendentesResultado> {
   const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
 
   const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id").eq("perfil_id", perfilId);
   const cartaoIds = (cartoesDoPerfil ?? []).map((c) => c.id as string);
-  if (cartaoIds.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0 };
+  if (cartaoIds.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0, restantes: 0 };
 
   const { data: lancamentos, error: errLancamentos } = await supabase
     .from("lancamentos_brutos")
     .select("id, descricao_original, valor, data")
     .in("cartao_id", cartaoIds);
   if (errLancamentos) throw new Error("Falha ao buscar lançamentos: " + errLancamentos.message);
-  if (!lancamentos || lancamentos.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0 };
+  if (!lancamentos || lancamentos.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0, restantes: 0 };
 
   const { data: propostasExistentes } = await supabase
     .from("classificacao_propostas")
@@ -46,7 +52,7 @@ export async function classificarLancamentosPendentes(): Promise<ClassificarPend
       data: l.data as string,
     }));
 
-  if (pendentes.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0 };
+  if (pendentes.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0, restantes: 0 };
 
   const [taxonomia, aliases, regrasAtivas] = await Promise.all([
     carregarTaxonomia(supabase),
@@ -54,7 +60,7 @@ export async function classificarLancamentosPendentes(): Promise<ClassificarPend
     carregarRegrasAtivas(supabase, perfilId),
   ]);
 
-  const { propostas, execucoesRegra } = await classificarLancamentos(pendentes, aliases, taxonomia, regrasAtivas);
+  const { propostas, execucoesRegra, llmRestantes } = await classificarLancamentos(pendentes, aliases, taxonomia, regrasAtivas);
 
   if (execucoesRegra.length > 0) {
     const { error: errExecucoes } = await supabase.from("regra_execucoes").insert(
@@ -92,5 +98,6 @@ export async function classificarLancamentosPendentes(): Promise<ClassificarPend
     totalProcessados: propostas.length,
     porRegra: propostas.filter((p) => p.origem === "regra").length,
     porLlm: propostas.filter((p) => p.origem === "llm").length,
+    restantes: llmRestantes,
   };
 }

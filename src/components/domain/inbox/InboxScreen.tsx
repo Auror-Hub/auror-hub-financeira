@@ -44,6 +44,7 @@ export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCatego
   const [pendenteClassificacao, startTransition] = useTransition();
   const [pendenteAcao, startAcaoTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+  const [progresso, setProgresso] = useState<{ feitos: number; total: number } | null>(null);
 
   /** "Revisar depois" não persiste (não há ENT-REVIEW-EVENT pra isso) — só some da fila até recarregar. */
   const [adiados, setAdiados] = useState<Set<string>>(new Set());
@@ -153,12 +154,26 @@ export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCatego
 
   function gerarPropostas() {
     setErro(null);
+    setProgresso({ feitos: 0, total: lancamentosSemProposta });
     startTransition(async () => {
       try {
-        await classificarLancamentosPendentes();
+        let restantes = 1;
+        let feitos = 0;
+        // Cada chamada processa só um lote via IA (ver classificarLancamentos) — repete
+        // até não sobrar nada, em vez de uma única chamada gigante que estouraria o
+        // timeout da função serverless com uma importação grande.
+        while (restantes > 0) {
+          const resultado = await classificarLancamentosPendentes();
+          feitos += resultado.totalProcessados;
+          restantes = resultado.restantes;
+          setProgresso({ feitos, total: lancamentosSemProposta });
+          if (resultado.totalProcessados === 0 && restantes === 0) break;
+        }
         router.refresh();
       } catch (e) {
         setErro(e instanceof Error ? e.message : "Falha ao gerar propostas de classificação.");
+      } finally {
+        setProgresso(null);
       }
     });
   }
@@ -170,7 +185,7 @@ export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCatego
         {lancamentosSemProposta} lançamento{lancamentosSemProposta === 1 ? "" : "s"} aguardando classificação.
       </span>
       <Button variant="primary" size="sm" disabled={pendenteClassificacao} onClick={gerarPropostas}>
-        {pendenteClassificacao ? "Classificando..." : "Gerar propostas"}
+        {pendenteClassificacao ? (progresso ? `Classificando... ${progresso.feitos}/${progresso.total}` : "Classificando...") : "Gerar propostas"}
       </Button>
     </div>
   );
