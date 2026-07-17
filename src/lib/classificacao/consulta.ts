@@ -186,12 +186,22 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
     if (contextoSugerido) tiposPendencia.push("contexto necessário");
     if (lancamentosComDuplicidade.has(l.id as string)) tiposPendencia.push("duplicidade");
 
+    // Identidade do fornecedor pra fins de agrupamento: prefere o fornecedor
+    // padronizado (fornecedorSugeridoId) quando existe — ele já unifica
+    // variações/aliases do mesmo fornecedor real. Sem isso (fornecedor novo,
+    // ainda não cadastrado — bem comum), cai pro texto normalizado. Usar só
+    // fornecedorSugeridoId aqui era um bug real: como ele é null pra QUALQUER
+    // fornecedor não cadastrado, lançamentos de fornecedores completamente
+    // diferentes que a IA classificasse na mesma categoria/objetivo
+    // acabavam agrupados juntos silenciosamente (achado em uso real, 2026-07-16).
+    const identidadeFornecedor = fornecedorSugeridoId ?? fornecedorNormalizado;
+
     // Fornecedor que já oscilou de categoria no passado nunca entra em
     // agrupamento de revisão em lote (Tópico B) — cai sempre pra revisão
     // individual, mesmo que a proposta atual coincida com outras.
     const chaveGrupo = ambiguoPorHistorico
       ? undefined
-      : `${fornecedorSugeridoId ?? "?"}|${categoriaId ?? "?"}|${subcategoriaId ?? "?"}|${objetivoId ?? "?"}`;
+      : `${identidadeFornecedor}|${categoriaId ?? "?"}|${subcategoriaId ?? "?"}|${objetivoId ?? "?"}`;
 
     construidos.push({
       item: {
