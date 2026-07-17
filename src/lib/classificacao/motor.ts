@@ -232,7 +232,11 @@ ${JSON.stringify(itens.map((i) => ({ id: i.id, descricao: i.descricao, valor: i.
   return mapa;
 }
 
-const TAMANHO_LOTE_LLM = 50;
+// 50 estourava o timeout de função serverless quando TODO o lote precisa de IA
+// (nenhum regra/alias casando) — visto na prática (zero regras/fornecedores
+// após um reset completo). 15 é seguro mesmo no pior caso (nenhum item
+// resolvido por regra, todos indo pra IA).
+const TAMANHO_LOTE_LLM = 15;
 
 export interface ResultadoClassificacao {
   propostas: PropostaGerada[];
