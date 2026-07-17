@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, FileText, Inbox, Lightbulb, Lock, RotateCcw } from "lucide-react";
 import type { CompetenciaDetalhe, MotivoReabertura } from "@/lib/domain/competency";
+import type { ItemHistorico } from "@/lib/historico/consulta";
 import { fecharCompetencia, reabrirCompetencia } from "@/lib/competencias/acoes";
 import { formatBRL, formatCompetencia, formatData } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -12,6 +13,7 @@ import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { InsightNarrative } from "@/components/domain/home/InsightNarrative";
+import { HistoryRow } from "@/components/domain/historico/HistoryRow";
 import { CompetencyStatusBadge } from "./CompetencyStatusBadge";
 import { CloseCompetencyModal } from "./CloseCompetencyModal";
 import { ReopenCompetencyModal } from "./ReopenCompetencyModal";
@@ -19,9 +21,18 @@ import { ReopenCompetencyModal } from "./ReopenCompetencyModal";
 export interface CompetencyDetailScreenProps {
   detalheInicial: CompetenciaDetalhe;
   versaoRelatorioId?: string;
+  lancamentos: ItemHistorico[];
+  categorias: { id: string; rotulo: string }[];
+  objetivos: { id: string; rotulo: string }[];
 }
 
-export function CompetencyDetailScreen({ detalheInicial: detalhe, versaoRelatorioId }: CompetencyDetailScreenProps) {
+export function CompetencyDetailScreen({
+  detalheInicial: detalhe,
+  versaoRelatorioId,
+  lancamentos,
+  categorias,
+  objetivos,
+}: CompetencyDetailScreenProps) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -119,6 +130,18 @@ export function CompetencyDetailScreen({ detalheInicial: detalhe, versaoRelatori
           tone={detalhe.lancamentosPendentes > 0 ? "warning" : "success"}
         />
       </KpiStrip>
+
+      <Card>
+        <CardHeader title="Lançamentos desta competência" count={lancamentos.length} />
+        <ul className="flex flex-col">
+          {lancamentos.map((item) => (
+            <HistoryRow key={item.lancamentoId} item={item} categorias={categorias} objetivos={objetivos} />
+          ))}
+          {lancamentos.length === 0 && (
+            <li className="py-6 text-center text-base text-text-muted">Nenhum lançamento decidido nesta competência ainda.</li>
+          )}
+        </ul>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">

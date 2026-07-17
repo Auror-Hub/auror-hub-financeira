@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { carregarLancamentosDecididos } from "@/lib/historico/consulta";
+import { carregarCompetencias } from "@/lib/competencias/consulta";
 import { HistoryListScreen } from "@/components/domain/historico/HistoryListScreen";
 
 interface SearchParams {
@@ -7,6 +8,7 @@ interface SearchParams {
   fornecedor?: string;
   dataInicio?: string;
   dataFim?: string;
+  competenciaMes?: string;
   pagina?: string;
 }
 
@@ -22,15 +24,26 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
     .filter((t) => t.dimensao === "objetivo")
     .map((t) => ({ id: t.id as string, rotulo: t.rotulo as string }));
 
+  const competencias = await carregarCompetencias();
+
   const filtros = {
     categoriaId: params.categoriaId,
     fornecedor: params.fornecedor,
     dataInicio: params.dataInicio,
     dataFim: params.dataFim,
+    competenciaMes: params.competenciaMes,
   };
   const pagina = Number(params.pagina ?? "1") || 1;
 
   const resultado = await carregarLancamentosDecididos(filtros, pagina);
 
-  return <HistoryListScreen resultado={resultado} categorias={categorias} objetivos={objetivos} filtrosAtuais={filtros} />;
+  return (
+    <HistoryListScreen
+      resultado={resultado}
+      categorias={categorias}
+      objetivos={objetivos}
+      competencias={competencias.map((c) => c.competencia.mesReferencia)}
+      filtrosAtuais={filtros}
+    />
+  );
 }

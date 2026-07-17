@@ -8,6 +8,8 @@ export interface FiltrosHistorico {
   fornecedor?: string;
   dataInicio?: string;
   dataFim?: string;
+  /** "AAAA-MM" — mesmo valor de lancamentos_brutos.competencia_calculada. */
+  competenciaMes?: string;
 }
 
 export interface ItemHistorico {
@@ -30,8 +32,16 @@ export interface HistoricoPaginado {
   totalPaginas: number;
 }
 
-/** Lista lançamentos já decididos (Ajuste D — Histórico é uma lista plana por lançamento, não SCR-HISTORY-001 original). */
-export async function carregarLancamentosDecididos(filtros: FiltrosHistorico, pagina = 1): Promise<HistoricoPaginado> {
+/**
+ * Lista lançamentos já decididos (Ajuste D — Histórico é uma lista plana por lançamento, não SCR-HISTORY-001 original).
+ * `itensPorPagina` é configurável pra permitir mostrar TUDO de uma competência de uma vez (revisão pré-fechamento,
+ * ver CompetencyDetailScreen) sem afetar a paginação padrão de `/historico`.
+ */
+export async function carregarLancamentosDecididos(
+  filtros: FiltrosHistorico,
+  pagina = 1,
+  itensPorPagina = ITENS_POR_PAGINA,
+): Promise<HistoricoPaginado> {
   const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
 
   const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id").eq("perfil_id", perfilId);
@@ -47,6 +57,7 @@ export async function carregarLancamentosDecididos(filtros: FiltrosHistorico, pa
   if (filtros.fornecedor) query = query.ilike("fornecedor_original", `%${filtros.fornecedor}%`);
   if (filtros.dataInicio) query = query.gte("data", filtros.dataInicio);
   if (filtros.dataFim) query = query.lte("data", filtros.dataFim);
+  if (filtros.competenciaMes) query = query.eq("competencia_calculada", filtros.competenciaMes);
 
   const { data: lancamentosRaw, error: errL } = await query;
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
@@ -101,12 +112,12 @@ export async function carregarLancamentosDecididos(filtros: FiltrosHistorico, pa
     .filter((item) => !filtros.categoriaId || item.categoriaId === filtros.categoriaId);
 
   const total = decididos.length;
-  const totalPaginas = Math.max(1, Math.ceil(total / ITENS_POR_PAGINA));
+  const totalPaginas = Math.max(1, Math.ceil(total / itensPorPagina));
   const paginaValida = Math.min(Math.max(1, pagina), totalPaginas);
-  const inicio = (paginaValida - 1) * ITENS_POR_PAGINA;
+  const inicio = (paginaValida - 1) * itensPorPagina;
 
   return {
-    itens: decididos.slice(inicio, inicio + ITENS_POR_PAGINA),
+    itens: decididos.slice(inicio, inicio + itensPorPagina),
     total,
     pagina: paginaValida,
     totalPaginas,

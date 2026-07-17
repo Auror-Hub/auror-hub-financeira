@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { History } from "lucide-react";
 import type { HistoricoPaginado } from "@/lib/historico/consulta";
+import { formatCompetencia } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -13,34 +14,36 @@ export interface HistoryListScreenProps {
   resultado: HistoricoPaginado;
   categorias: { id: string; rotulo: string }[];
   objetivos: { id: string; rotulo: string }[];
-  filtrosAtuais: { categoriaId?: string; fornecedor?: string; dataInicio?: string; dataFim?: string };
+  competencias: string[];
+  filtrosAtuais: { categoriaId?: string; fornecedor?: string; dataInicio?: string; dataFim?: string; competenciaMes?: string };
 }
 
 /** Ajuste D (brainstorm 2026-07-15) — lista plana de lançamentos já decididos, filtrável e editável inline. */
-export function HistoryListScreen({ resultado, categorias, objetivos, filtrosAtuais }: HistoryListScreenProps) {
+export function HistoryListScreen({ resultado, categorias, objetivos, competencias, filtrosAtuais }: HistoryListScreenProps) {
   const router = useRouter();
   const [categoriaId, setCategoriaId] = useState(filtrosAtuais.categoriaId ?? "");
   const [fornecedor, setFornecedor] = useState(filtrosAtuais.fornecedor ?? "");
   const [dataInicio, setDataInicio] = useState(filtrosAtuais.dataInicio ?? "");
   const [dataFim, setDataFim] = useState(filtrosAtuais.dataFim ?? "");
+  const [competenciaMes, setCompetenciaMes] = useState(filtrosAtuais.competenciaMes ?? "");
 
-  function aplicarFiltros() {
+  function montarParams(pagina?: number) {
     const params = new URLSearchParams();
     if (categoriaId) params.set("categoriaId", categoriaId);
     if (fornecedor) params.set("fornecedor", fornecedor);
     if (dataInicio) params.set("dataInicio", dataInicio);
     if (dataFim) params.set("dataFim", dataFim);
-    router.push(`/historico?${params.toString()}`);
+    if (competenciaMes) params.set("competenciaMes", competenciaMes);
+    if (pagina) params.set("pagina", String(pagina));
+    return params;
+  }
+
+  function aplicarFiltros() {
+    router.push(`/historico?${montarParams().toString()}`);
   }
 
   function irParaPagina(pagina: number) {
-    const params = new URLSearchParams();
-    if (categoriaId) params.set("categoriaId", categoriaId);
-    if (fornecedor) params.set("fornecedor", fornecedor);
-    if (dataInicio) params.set("dataInicio", dataInicio);
-    if (dataFim) params.set("dataFim", dataFim);
-    params.set("pagina", String(pagina));
-    router.push(`/historico?${params.toString()}`);
+    router.push(`/historico?${montarParams(pagina).toString()}`);
   }
 
   return (
@@ -52,6 +55,21 @@ export function HistoryListScreen({ resultado, categorias, objetivos, filtrosAtu
       </div>
 
       <Card className="flex flex-wrap items-end gap-2">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+          Competência
+          <select
+            value={competenciaMes}
+            onChange={(e) => setCompetenciaMes(e.target.value)}
+            className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+          >
+            <option value="">Todas</option>
+            {competencias.map((mes) => (
+              <option key={mes} value={mes}>
+                {formatCompetencia(mes)}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="flex flex-col gap-1 text-sm text-text-secondary">
           Categoria
           <select
