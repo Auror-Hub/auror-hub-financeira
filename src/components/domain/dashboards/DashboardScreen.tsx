@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 
-export type PresetPeriodo = "atual" | "3m" | "6m" | "12m" | "custom";
+export type PresetPeriodo = "atual" | "3m" | "6m" | "12m" | "mes" | "custom";
 
 const CORES = ["#4a6cf7", "#d4860a", "#2da870", "#d94f3d", "#7a6ca8", "#7b96f9", "#b0752e", "#5aa17f"];
 
@@ -43,7 +43,7 @@ const PRESETS: { chave: PresetPeriodo; rotulo: string }[] = [
 export interface DashboardScreenProps {
   painel: PainelControle;
   objetivos: { id: string; rotulo: string }[];
-  filtrosAtuais: { preset: PresetPeriodo; dataInicio: string; dataFim: string; objetivoId?: string };
+  filtrosAtuais: { preset: PresetPeriodo; dataInicio: string; dataFim: string; mes?: string; objetivoId?: string };
 }
 
 function pct(fracao: number): number {
@@ -54,14 +54,18 @@ export function DashboardScreen({ painel, objetivos, filtrosAtuais }: DashboardS
   const router = useRouter();
   const [dataInicio, setDataInicio] = useState(filtrosAtuais.dataInicio);
   const [dataFim, setDataFim] = useState(filtrosAtuais.dataFim);
+  const [mes, setMes] = useState(filtrosAtuais.mes ?? filtrosAtuais.dataInicio.slice(0, 7));
 
-  function navegar(patch: Partial<{ preset: PresetPeriodo; dataInicio: string; dataFim: string; objetivoId: string }>) {
+  function navegar(patch: Partial<{ preset: PresetPeriodo; dataInicio: string; dataFim: string; mes: string; objetivoId: string }>) {
     const preset = patch.preset ?? filtrosAtuais.preset;
     const params = new URLSearchParams();
     params.set("preset", preset);
     if (preset === "custom") {
       params.set("dataInicio", patch.dataInicio ?? dataInicio);
       params.set("dataFim", patch.dataFim ?? dataFim);
+    }
+    if (preset === "mes") {
+      params.set("mes", patch.mes ?? mes);
     }
     const objetivoId = "objetivoId" in patch ? patch.objetivoId : filtrosAtuais.objetivoId;
     if (objetivoId) params.set("objetivoId", objetivoId);
@@ -101,6 +105,13 @@ export function DashboardScreen({ painel, objetivos, filtrosAtuais }: DashboardS
               </Button>
             ))}
             <Button
+              variant={filtrosAtuais.preset === "mes" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => navegar({ preset: "mes", mes })}
+            >
+              Mês específico
+            </Button>
+            <Button
               variant={filtrosAtuais.preset === "custom" ? "primary" : "secondary"}
               size="sm"
               onClick={() => navegar({ preset: "custom", dataInicio, dataFim })}
@@ -109,6 +120,18 @@ export function DashboardScreen({ painel, objetivos, filtrosAtuais }: DashboardS
             </Button>
           </div>
         </div>
+
+        {filtrosAtuais.preset === "mes" && (
+          <div className="flex items-end gap-2">
+            <label className="flex flex-col gap-1 text-sm text-text-secondary">
+              Mês
+              <Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="h-[34px]" />
+            </label>
+            <Button variant="secondary" size="sm" onClick={() => navegar({ preset: "mes", mes })}>
+              Aplicar
+            </Button>
+          </div>
+        )}
 
         {filtrosAtuais.preset === "custom" && (
           <div className="flex items-end gap-2">
