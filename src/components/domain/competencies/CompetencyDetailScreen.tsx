@@ -13,7 +13,7 @@ import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { InsightNarrative } from "@/components/domain/home/InsightNarrative";
-import { HistoryRow } from "@/components/domain/historico/HistoryRow";
+import { CompetencyLedgerTable } from "./CompetencyLedgerTable";
 import { CompetencyStatusBadge } from "./CompetencyStatusBadge";
 import { CloseCompetencyModal } from "./CloseCompetencyModal";
 import { ReopenCompetencyModal } from "./ReopenCompetencyModal";
@@ -23,6 +23,7 @@ export interface CompetencyDetailScreenProps {
   versaoRelatorioId?: string;
   lancamentos: ItemHistorico[];
   categorias: { id: string; rotulo: string }[];
+  subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
 }
 
@@ -31,6 +32,7 @@ export function CompetencyDetailScreen({
   versaoRelatorioId,
   lancamentos,
   categorias,
+  subcategoriasPorCategoria,
   objetivos,
 }: CompetencyDetailScreenProps) {
   const router = useRouter();
@@ -133,14 +135,12 @@ export function CompetencyDetailScreen({
 
       <Card>
         <CardHeader title="Lançamentos desta competência" count={lancamentos.length} />
-        <ul className="flex flex-col">
-          {lancamentos.map((item) => (
-            <HistoryRow key={item.lancamentoId} item={item} categorias={categorias} objetivos={objetivos} />
-          ))}
-          {lancamentos.length === 0 && (
-            <li className="py-6 text-center text-base text-text-muted">Nenhum lançamento decidido nesta competência ainda.</li>
-          )}
-        </ul>
+        <CompetencyLedgerTable
+          lancamentos={lancamentos}
+          categorias={categorias}
+          subcategoriasPorCategoria={subcategoriasPorCategoria}
+          objetivos={objetivos}
+        />
       </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

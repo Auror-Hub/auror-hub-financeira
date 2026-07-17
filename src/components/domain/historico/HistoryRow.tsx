@@ -1,56 +1,35 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import type { ItemHistorico } from "@/lib/historico/consulta";
-import { corrigirClassificacao, corrigirTodosDoFornecedor, detectarDesvioDePadrao, type PadraoDivergente } from "@/lib/classificacao/decisoes";
-import { criarRegraManual } from "@/lib/regras/acoes";
 import { formatBRL, formatData } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
+import { useCorrecaoInline } from "./useCorrecaoInline";
 
 export interface HistoryRowProps {
   item: ItemHistorico;
   categorias: { id: string; rotulo: string }[];
+  subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
 }
 
-export function HistoryRow({ item, categorias, objetivos }: HistoryRowProps) {
-  const router = useRouter();
-  const [pendente, startTransition] = useTransition();
-  const [categoriaId, setCategoriaId] = useState(item.categoriaId ?? "");
-  const [objetivoId, setObjetivoId] = useState(item.objetivoId ?? "");
-  const [desvio, setDesvio] = useState<PadraoDivergente | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
+export function HistoryRow({ item, categorias, subcategoriasPorCategoria, objetivos }: HistoryRowProps) {
+  const {
+    categoriaId,
+    subcategoriaId,
+    objetivoId,
+    pendente,
+    erro,
+    desvio,
+    aoTrocarCategoria,
+    aoTrocarSubcategoria,
+    aoTrocarObjetivo,
+    resolverSoEste,
+    resolverTodosPassados,
+    resolverNovaRegra,
+    cancelarDesvio,
+  } = useCorrecaoInline(item);
 
-  function executar(acao: () => Promise<void>) {
-    setErro(null);
-    startTransition(async () => {
-      try {
-        await acao();
-        setDesvio(null);
-        router.refresh();
-      } catch (e) {
-        setErro(e instanceof Error ? e.message : "Falha ao salvar.");
-      }
-    });
-  }
-
-  async function aoTrocarCategoria(novaCategoriaId: string) {
-    setCategoriaId(novaCategoriaId);
-    if (!novaCategoriaId || !objetivoId) return;
-    const padrao = await detectarDesvioDePadrao(item.lancamentoId, novaCategoriaId);
-    if (padrao) {
-      setDesvio(padrao);
-    } else {
-      executar(() => corrigirClassificacao(item.lancamentoId, { categoriaId: novaCategoriaId, objetivoId }));
-    }
-  }
-
-  function aoTrocarObjetivo(novoObjetivoId: string) {
-    setObjetivoId(novoObjetivoId);
-    if (!categoriaId || !novoObjetivoId) return;
-    executar(() => corrigirClassificacao(item.lancamentoId, { categoriaId, objetivoId: novoObjetivoId }));
-  }
+  const subcategorias = categoriaId ? subcategoriasPorCategoria[categoriaId] ?? [] : [];
 
   return (
     <li className="flex flex-col gap-1.5 border-b border-border-subtle py-2.5">
@@ -70,6 +49,19 @@ export function HistoryRow({ item, categorias, objetivos }: HistoryRowProps) {
             {categorias.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.rotulo}
+              </option>
+            ))}
+          </select>
+          <select
+            value={subcategoriaId}
+            disabled={pendente || subcategorias.length === 0}
+            onChange={(e) => aoTrocarSubcategoria(e.target.value)}
+            className="h-8 rounded-input border border-border-default bg-surface-primary px-2 text-sm text-text-primary disabled:opacity-50"
+          >
+            <option value="">Subcategoria</option>
+            {subcategorias.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.rotulo}
               </option>
             ))}
           </select>
@@ -98,40 +90,16 @@ export function HistoryRow({ item, categorias, objetivos }: HistoryRowProps) {
             Esse fornecedor costuma ser <strong>{desvio.categoriaAtualRotulo}</strong>. O que você quer fazer?
           </span>
           <div className="flex flex-wrap gap-1.5">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={pendente}
-              onClick={() => executar(() => corrigirClassificacao(item.lancamentoId, { categoriaId, objetivoId }))}
-            >
+            <Button variant="secondary" size="sm" disabled={pendente} onClick={resolverSoEste}>
               Só este
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={pendente}
-              onClick={() => executar(() => corrigirTodosDoFornecedor(desvio.fornecedorNormalizado, { categoriaId, objetivoId }))}
-            >
+            <Button variant="secondary" size="sm" disabled={pendente} onClick={resolverTodosPassados}>
               Todos os passados
             </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={pendente}
-              onClick={() =>
-                executar(async () => {
-                  const formData = new FormData();
-                  formData.set("fornecedorTexto", desvio.fornecedorNormalizado);
-                  formData.set("categoriaId", categoriaId);
-                  formData.set("objetivoId", objetivoId);
-                  formData.set("confianca", "0.9");
-                  await criarRegraManual(formData);
-                })
-              }
-            >
+            <Button variant="primary" size="sm" disabled={pendente} onClick={resolverNovaRegra}>
               Nova regra
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setDesvio(null)}>
+            <Button variant="ghost" size="sm" onClick={cancelarDesvio}>
               Cancelar
             </Button>
           </div>

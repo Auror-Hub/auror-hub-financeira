@@ -21,6 +21,8 @@ export interface ItemHistorico {
   competenciaCalculada: string;
   categoriaId: string | null;
   categoriaRotulo: string | null;
+  subcategoriaId: string | null;
+  subcategoriaRotulo: string | null;
   objetivoId: string | null;
   objetivoRotulo: string | null;
 }
@@ -67,15 +69,19 @@ export async function carregarLancamentosDecididos(
   const idsLancamentos = lancamentos.map((l) => l.id as string);
   const { data: decisoesRaw, error: errDec } = await supabase
     .from("classificacao_decisoes")
-    .select("lancamento_id, categoria_id, objetivo_id, versao")
+    .select("lancamento_id, categoria_id, subcategoria_id, objetivo_id, versao")
     .in("lancamento_id", idsLancamentos)
     .order("versao", { ascending: true });
   if (errDec) throw new Error("Falha ao carregar decisões: " + errDec.message);
 
-  const decisaoVigentePorLancamento = new Map<string, { categoria_id: string | null; objetivo_id: string | null }>();
+  const decisaoVigentePorLancamento = new Map<
+    string,
+    { categoria_id: string | null; subcategoria_id: string | null; objetivo_id: string | null }
+  >();
   for (const d of decisoesRaw ?? []) {
     decisaoVigentePorLancamento.set(d.lancamento_id as string, {
       categoria_id: d.categoria_id as string | null,
+      subcategoria_id: d.subcategoria_id as string | null,
       objetivo_id: d.objetivo_id as string | null,
     });
   }
@@ -83,6 +89,7 @@ export async function carregarLancamentosDecididos(
   const idsTermos = new Set<string>();
   for (const d of decisaoVigentePorLancamento.values()) {
     if (d.categoria_id) idsTermos.add(d.categoria_id);
+    if (d.subcategoria_id) idsTermos.add(d.subcategoria_id);
     if (d.objetivo_id) idsTermos.add(d.objetivo_id);
   }
   const { data: termosRaw, error: errTermos } = await supabase
@@ -105,6 +112,8 @@ export async function carregarLancamentosDecididos(
         competenciaCalculada: l.competencia_calculada as string,
         categoriaId: decisao.categoria_id,
         categoriaRotulo: decisao.categoria_id ? rotuloPorTermo.get(decisao.categoria_id) ?? null : null,
+        subcategoriaId: decisao.subcategoria_id,
+        subcategoriaRotulo: decisao.subcategoria_id ? rotuloPorTermo.get(decisao.subcategoria_id) ?? null : null,
         objetivoId: decisao.objetivo_id,
         objetivoRotulo: decisao.objetivo_id ? rotuloPorTermo.get(decisao.objetivo_id) ?? null : null,
       };

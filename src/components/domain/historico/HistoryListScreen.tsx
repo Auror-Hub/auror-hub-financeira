@@ -13,13 +13,21 @@ import { HistoryRow } from "./HistoryRow";
 export interface HistoryListScreenProps {
   resultado: HistoricoPaginado;
   categorias: { id: string; rotulo: string }[];
+  subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
   competencias: string[];
   filtrosAtuais: { categoriaId?: string; fornecedor?: string; dataInicio?: string; dataFim?: string; competenciaMes?: string };
 }
 
 /** Ajuste D (brainstorm 2026-07-15) — lista plana de lançamentos já decididos, filtrável e editável inline. */
-export function HistoryListScreen({ resultado, categorias, objetivos, competencias, filtrosAtuais }: HistoryListScreenProps) {
+export function HistoryListScreen({
+  resultado,
+  categorias,
+  subcategoriasPorCategoria,
+  objetivos,
+  competencias,
+  filtrosAtuais,
+}: HistoryListScreenProps) {
   const router = useRouter();
   const [categoriaId, setCategoriaId] = useState(filtrosAtuais.categoriaId ?? "");
   const [fornecedor, setFornecedor] = useState(filtrosAtuais.fornecedor ?? "");
@@ -105,7 +113,13 @@ export function HistoryListScreen({ resultado, categorias, objetivos, competenci
       <Card>
         <ul className="flex flex-col">
           {resultado.itens.map((item) => (
-            <HistoryRow key={item.lancamentoId} item={item} categorias={categorias} objetivos={objetivos} />
+            <HistoryRow
+              key={item.lancamentoId}
+              item={item}
+              categorias={categorias}
+              subcategoriasPorCategoria={subcategoriasPorCategoria}
+              objetivos={objetivos}
+            />
           ))}
           {resultado.itens.length === 0 && (
             <li className="py-6 text-center text-base text-text-muted">Nenhum lançamento decidido encontrado para este filtro.</li>
