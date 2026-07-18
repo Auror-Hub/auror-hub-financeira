@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { InsightNarrative } from "@/components/domain/home/InsightNarrative";
 import { CompetencyLedgerTable } from "./CompetencyLedgerTable";
+import type { CartaoOpcaoEdicao } from "./LancamentoEditModal";
 import { CompetencyStatusBadge } from "./CompetencyStatusBadge";
 import { CloseCompetencyModal } from "./CloseCompetencyModal";
 import { ReopenCompetencyModal } from "./ReopenCompetencyModal";
@@ -25,6 +26,7 @@ export interface CompetencyDetailScreenProps {
   categorias: { id: string; rotulo: string }[];
   subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
+  cartoes: CartaoOpcaoEdicao[];
 }
 
 export function CompetencyDetailScreen({
@@ -34,6 +36,7 @@ export function CompetencyDetailScreen({
   categorias,
   subcategoriasPorCategoria,
   objetivos,
+  cartoes,
 }: CompetencyDetailScreenProps) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
@@ -140,6 +143,7 @@ export function CompetencyDetailScreen({
           categorias={categorias}
           subcategoriasPorCategoria={subcategoriasPorCategoria}
           objetivos={objetivos}
+          cartoes={cartoes}
         />
       </Card>
 

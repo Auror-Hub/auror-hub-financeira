@@ -2,10 +2,14 @@ import Link from "next/link";
 import { ArrowRight, FileText, TriangleAlert, Lightbulb, Upload } from "lucide-react";
 import { carregarResumoHome } from "@/lib/home/consulta";
 import { formatBRL, formatCompetencia, formatVariacaoPercentual } from "@/lib/format";
+import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 import { CompetencyStatusBadge } from "@/components/domain/competencies/CompetencyStatusBadge";
 import { InsightNarrative } from "@/components/domain/home/InsightNarrative";
+import { HomePizza } from "@/components/domain/home/HomePizza";
+
+const ATALHOS = NAV_ITEMS.filter((item) => item.implemented && item.href !== "/");
 
 export default async function HomePage() {
   const resumo = await carregarResumoHome();
@@ -61,9 +65,37 @@ export default async function HomePage() {
         )}
       </KpiStrip>
 
+      {/* Atalhos rápidos para os módulos */}
+      <section className="flex flex-col gap-2">
+        <span className="eyebrow">Atalhos</span>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {ATALHOS.map((item) => {
+            const Icone = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-2 rounded-card bg-surface-primary p-3 text-sm text-text-primary shadow-[var(--shadow-card)] transition-shadow duration-150 hover:shadow-[var(--shadow-card-hover)]"
+              >
+                <Icone size={16} className="shrink-0 text-action-primary" strokeWidth={1.75} />
+                <span className="truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Coluna principal: mudanças + extraordinárias */}
+        {/* Coluna principal: distribuição + mudanças + extraordinárias */}
         <div className="flex flex-col gap-6 lg:col-span-2">
+          {resumo.distribuicaoCategorias.length > 0 && (
+            <Card>
+              <CardHeader title="Distribuição do mês" />
+              <HomePizza distribuicao={resumo.distribuicaoCategorias} />
+              <p className="mt-1 text-sm text-text-muted">Clique para abrir o Painel de Controle e ir do macro ao micro.</p>
+            </Card>
+          )}
+
           {resumo.principaisMudancas.length > 0 && (
             <section className="flex flex-col gap-3">
               <span className="eyebrow">

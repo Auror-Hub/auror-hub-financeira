@@ -4,6 +4,7 @@ import { carregarCompetencias } from "@/lib/competencias/consulta";
 import { carregarInsightsDaCompetencia } from "@/lib/analise/consulta";
 import { carregarRelatorios } from "@/lib/relatorios/consulta";
 import { variacaoPercentual } from "@/lib/analise/motor";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import type { AnoMes, Centavos, Competencia, Insight, Recomendacao } from "@/lib/domain/types";
 
 const LIMIAR_VARIACAO_CATEGORIA = 0.1;
@@ -46,6 +47,8 @@ export interface ResumoHome {
   principaisMudancas: Insight[];
   despesasExtraordinarias: DespesaExtraordinaria[];
   categoriasPressionadas: CategoriaPressionadaHome[];
+  /** Gasto por categoria da competência atual (para a pizza simplificada da Home), maior primeiro. */
+  distribuicaoCategorias: { rotulo: string; total: number }[];
   alertas: AlertaHome[];
   recomendacoes: Recomendacao[];
   ultimoRelatorio?: RelatorioResumoHome;
@@ -61,6 +64,7 @@ async function carregarLancamentosComCategoria(
   supabase: Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"],
   cartaoIds: string[],
   mesesReferencia: string[],
+  inativos: Set<string>,
 ): Promise<LancamentoComCategoria[]> {
   if (cartaoIds.length === 0 || mesesReferencia.length === 0) return [];
 
@@ -70,7 +74,7 @@ async function carregarLancamentosComCategoria(
     .in("cartao_id", cartaoIds)
     .in("competencia_calculada", mesesReferencia);
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
-  const lancamentos = lancamentosRaw ?? [];
+  const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   if (lancamentos.length === 0) return [];
 
   const idsLancamentos = lancamentos.map((l) => l.id as string);
@@ -140,9 +144,10 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
   const cartaoIds = (cartoesDoPerfil ?? []).map((c) => c.id as string);
 
   const mesesAnteriores = fechadasAnteriores.map((c) => c.competencia.mesReferencia);
+  const inativos = await carregarIdsInativos(supabase, perfilId);
   const [lancamentosAtual, lancamentosAnteriores] = await Promise.all([
-    carregarLancamentosComCategoria(supabase, cartaoIds, [atual.competencia.mesReferencia]),
-    carregarLancamentosComCategoria(supabase, cartaoIds, mesesAnteriores),
+    carregarLancamentosComCategoria(supabase, cartaoIds, [atual.competencia.mesReferencia], inativos),
+    carregarLancamentosComCategoria(supabase, cartaoIds, mesesAnteriores, inativos),
   ]);
 
   const idsCategorias = new Set<string>();
@@ -200,6 +205,10 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
         .map((c) => ({ rotulo: rotuloPorCategoria.get(c.categoriaId) ?? "—", variacao: c.variacao }))
     : [];
 
+  const distribuicaoCategorias = [...somaAtualPorCategoria.entries()]
+    .map(([categoriaId, total]) => ({ rotulo: rotuloPorCategoria.get(categoriaId) ?? "—", total }))
+    .sort((a, b) => b.total - a.total);
+
   const alertas: AlertaHome[] = [];
   if (atual.lancamentosPendentes > 0) {
     alertas.push({ tom: "atenção", texto: `${atual.lancamentosPendentes} lançamentos ainda aguardam sua revisão nesta competência.` });
@@ -222,6 +231,7 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     principaisMudancas,
     despesasExtraordinarias,
     categoriasPressionadas,
+    distribuicaoCategorias,
     alertas,
     recomendacoes,
     ultimoRelatorio,

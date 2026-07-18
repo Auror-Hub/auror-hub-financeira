@@ -1,18 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil } from "lucide-react";
 import type { ItemHistorico } from "@/lib/historico/consulta";
 import { formatBRL, formatData } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useCorrecaoInline } from "@/components/domain/historico/useCorrecaoInline";
+import { LancamentoEditModal, type CartaoOpcaoEdicao } from "./LancamentoEditModal";
 
 export interface CompetencyLedgerTableProps {
   lancamentos: ItemHistorico[];
   categorias: { id: string; rotulo: string }[];
   subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
+  cartoes: CartaoOpcaoEdicao[];
 }
 
 type ColunaOrdenavel = "data" | "fornecedor" | "valor" | "categoria" | "subcategoria" | "objetivo";
@@ -49,6 +51,7 @@ export function CompetencyLedgerTable({
   categorias,
   subcategoriasPorCategoria,
   objetivos,
+  cartoes,
 }: CompetencyLedgerTableProps) {
   const [ordenarPor, setOrdenarPor] = useState<ColunaOrdenavel>("data");
   const [direcao, setDirecao] = useState<Direcao>("desc");
@@ -194,6 +197,7 @@ export function CompetencyLedgerTable({
                   </th>
                 );
               })}
+              <th className="w-10 py-2 px-2" aria-label="Ações" />
             </tr>
           </thead>
           <tbody>
@@ -204,11 +208,12 @@ export function CompetencyLedgerTable({
                 categorias={categorias}
                 subcategoriasPorCategoria={subcategoriasPorCategoria}
                 objetivos={objetivos}
+                cartoes={cartoes}
               />
             ))}
             {visiveis.length === 0 && (
               <tr>
-                <td colSpan={COLUNAS.length} className="py-6 text-center text-base text-text-muted">
+                <td colSpan={COLUNAS.length + 1} className="py-6 text-center text-base text-text-muted">
                   Nenhum lançamento decidido para este filtro.
                 </td>
               </tr>
@@ -225,12 +230,15 @@ function LedgerRow({
   categorias,
   subcategoriasPorCategoria,
   objetivos,
+  cartoes,
 }: {
   item: ItemHistorico;
   categorias: { id: string; rotulo: string }[];
   subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
+  cartoes: CartaoOpcaoEdicao[];
 }) {
+  const [modalAberto, setModalAberto] = useState(false);
   const {
     categoriaId,
     subcategoriaId,
@@ -292,10 +300,35 @@ function LedgerRow({
             ))}
           </select>
         </td>
+        <td className="py-2 px-2 text-right">
+          <button
+            type="button"
+            onClick={() => setModalAberto(true)}
+            aria-label="Editar lançamento"
+            className="text-text-muted hover:text-text-primary"
+          >
+            <Pencil size={15} strokeWidth={1.75} />
+          </button>
+        </td>
       </tr>
+      {modalAberto && (
+        <tr>
+          <td colSpan={COLUNAS.length + 1} className="p-0">
+            <LancamentoEditModal
+              open={modalAberto}
+              onClose={() => setModalAberto(false)}
+              item={item}
+              cartoes={cartoes}
+              categorias={categorias}
+              subcategoriasPorCategoria={subcategoriasPorCategoria}
+              objetivos={objetivos}
+            />
+          </td>
+        </tr>
+      )}
       {(erro || desvio) && (
         <tr>
-          <td colSpan={COLUNAS.length} className="px-2 pb-2">
+          <td colSpan={COLUNAS.length + 1} className="px-2 pb-2">
             {erro && <p className="text-sm text-terra">{erro}</p>}
             {desvio && (
               <div className="flex flex-col gap-2 rounded-card bg-indigo-tint p-2.5 text-sm">

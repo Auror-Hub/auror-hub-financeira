@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { reabrirCompetenciaInterno, registrarAuditoriaCompetencia } from "./reabertura";
 import { gerarInsights } from "@/lib/analise/motor";
 import { carregarInsightsDaCompetencia } from "@/lib/analise/consulta";
@@ -28,7 +29,8 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
     .select("id, valor, fornecedor_original")
     .eq("competencia_calculada", competencia.mes_referencia as string);
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
-  const lancamentos = lancamentosRaw ?? [];
+  const inativos = await carregarIdsInativos(supabase, perfilId);
+  const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   const idsLancamentos = lancamentos.map((l) => l.id as string);
 
   const { data: decisoesRaw, error: errDec } = await supabase

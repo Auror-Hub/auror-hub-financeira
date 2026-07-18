@@ -21,6 +21,9 @@ import {
   Tooltip,
   LineChart,
   Line,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import type { PainelControle, CategoriaBreakdown } from "@/lib/dashboards/consulta";
 import { formatBRL, formatCompetencia } from "@/lib/format";
@@ -28,6 +31,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
+import { Modal } from "@/components/ui/Modal";
 
 export type PresetPeriodo = "atual" | "3m" | "6m" | "12m" | "mes" | "custom";
 
@@ -250,29 +254,143 @@ function PulsoHeader({ painel, objetivoAtivo }: { painel: PainelControle; objeti
 
 /* ── Camada 1 — Onde vai o dinheiro (drill-down) ──────────────────────────── */
 
+const MAX_FATIAS_PIZZA = 7;
+
 function DrilldownCategorias({ categorias }: { categorias: CategoriaBreakdown[] }) {
+  const [popup, setPopup] = useState<CategoriaBreakdown | null>(null);
   const topN = Math.min(3, categorias.length);
   const concentracao = pct(categorias.slice(0, topN).reduce((s, c) => s + c.percentualDoTotal, 0));
   const maxPercentual = categorias[0]?.percentualDoTotal ?? 1;
+
+  // Pizza (share): top categorias + "Outros" agrupando o restante.
+  const fatias = categorias.slice(0, MAX_FATIAS_PIZZA);
+  const resto = categorias.slice(MAX_FATIAS_PIZZA);
+  const totalResto = resto.reduce((s, c) => s + c.total, 0);
+  const dadosPizza = [
+    ...fatias.map((c) => ({ nome: c.rotulo, total: c.total, categoria: c as CategoriaBreakdown | null })),
+    ...(totalResto > 0 ? [{ nome: "Outros", total: totalResto, categoria: null }] : []),
+  ];
 
   return (
     <Card>
       <CardHeader title="Onde vai o dinheiro" />
       <p className="mb-3 text-sm text-text-secondary">
         Suas {topN} maiores {topN === 1 ? "categoria concentra" : "categorias concentram"} {concentracao}% do gasto — é onde uma
-        redução pesa mais. Clique numa categoria pra abrir subcategorias e fornecedores.
+        redução pesa mais. Clique numa fatia (ou numa categoria) pra abrir subcategorias e fornecedores.
       </p>
-      <ul className="flex flex-col gap-1.5">
-        {categorias.map((cat, i) => (
-          <CategoriaBar key={cat.categoriaId} categoria={cat} cor={CORES[i % CORES.length]} maxPercentual={maxPercentual} />
-        ))}
-      </ul>
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+        <div className="h-64 w-full lg:w-1/2">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={dadosPizza}
+                dataKey="total"
+                nameKey="nome"
+                cx="50%"
+                cy="50%"
+                outerRadius={90}
+                onClick={(e: { payload?: { categoria?: CategoriaBreakdown | null } }) => {
+                  const cat = e?.payload?.categoria;
+                  if (cat) setPopup(cat);
+                }}
+              >
+                {dadosPizza.map((fatia, i) => (
+                  <Cell
+                    key={fatia.nome}
+                    fill={CORES[i % CORES.length]}
+                    className={fatia.categoria ? "cursor-pointer" : ""}
+                  />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => formatBRL(Number(value))} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <ul className="flex w-full flex-col gap-1.5 lg:w-1/2">
+          {categorias.map((cat, i) => (
+            <CategoriaBar
+              key={cat.categoriaId}
+              categoria={cat}
+              cor={CORES[i % CORES.length]}
+              maxPercentual={maxPercentual}
+              onAbrir={() => setPopup(cat)}
+            />
+          ))}
+        </ul>
+      </div>
+
+      {popup && <CategoriaPopup categoria={popup} onClose={() => setPopup(null)} />}
     </Card>
   );
 }
 
-function CategoriaBar({ categoria, cor, maxPercentual }: { categoria: CategoriaBreakdown; cor: string; maxPercentual: number }) {
-  const [aberta, setAberta] = useState(false);
+function CategoriaPopup({ categoria, onClose }: { categoria: CategoriaBreakdown; onClose: () => void }) {
+  return (
+    <Modal open onClose={onClose} title={categoria.rotulo} width={520}>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm text-text-muted">Total no período</span>
+          <span className="font-mono-nums text-lg font-semibold text-text-primary">
+            {formatBRL(categoria.total)} · {pct(categoria.percentualDoTotal)}%
+          </span>
+        </div>
+
+        <div>
+          <span className="eyebrow">Subcategorias</span>
+          {categoria.subcategorias.length > 0 ? (
+            <ul className="mt-1.5 flex flex-col gap-1.5">
+              {categoria.subcategorias.map((sub) => (
+                <li key={sub.rotulo} className="flex flex-col gap-0.5">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="truncate text-text-secondary">{sub.rotulo}</span>
+                    <span className="shrink-0 font-mono-nums text-text-primary">
+                      {formatBRL(sub.total)} · {pct(sub.percentualDaCategoria)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-pill bg-surface-secondary">
+                    <div className="h-full rounded-pill bg-action-primary" style={{ width: `${pct(sub.percentualDaCategoria)}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-sm text-text-muted">Nenhuma subcategoria classificada nesta categoria.</p>
+          )}
+        </div>
+
+        <div>
+          <span className="eyebrow">Maiores fornecedores</span>
+          {categoria.topFornecedores.length > 0 ? (
+            <ul className="mt-1.5 flex flex-col gap-1">
+              {categoria.topFornecedores.map((f) => (
+                <li key={f.fornecedor} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate text-text-secondary">{f.fornecedor}</span>
+                  <span className="shrink-0 font-mono-nums text-text-primary">{formatBRL(f.total)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-sm text-text-muted">Sem fornecedores identificados.</p>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function CategoriaBar({
+  categoria,
+  cor,
+  maxPercentual,
+  onAbrir,
+}: {
+  categoria: CategoriaBreakdown;
+  cor: string;
+  maxPercentual: number;
+  onAbrir: () => void;
+}) {
   const larguraRelativa = maxPercentual > 0 ? (categoria.percentualDoTotal / maxPercentual) * 100 : 0;
   const variacao = categoria.variacaoVsAnterior;
 
@@ -280,14 +398,10 @@ function CategoriaBar({ categoria, cor, maxPercentual }: { categoria: CategoriaB
     <li className="rounded-card border border-border-subtle">
       <button
         type="button"
-        onClick={() => setAberta((v) => !v)}
+        onClick={onAbrir}
         className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-secondary"
       >
-        <ChevronRight
-          size={16}
-          strokeWidth={2}
-          className={`shrink-0 text-text-muted transition-transform ${aberta ? "rotate-90" : ""}`}
-        />
+        <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-base text-text-primary">{categoria.rotulo}</span>
@@ -314,40 +428,6 @@ function CategoriaBar({ categoria, cor, maxPercentual }: { categoria: CategoriaB
           </div>
         </div>
       </button>
-
-      {aberta && (
-        <div className="flex flex-col gap-4 border-t border-border-subtle px-3 py-3 sm:flex-row">
-          <div className="flex-1">
-            <span className="eyebrow">Subcategorias</span>
-            <ul className="mt-1.5 flex flex-col gap-1.5">
-              {categoria.subcategorias.map((sub) => (
-                <li key={sub.rotulo} className="flex flex-col gap-0.5">
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="truncate text-text-secondary">{sub.rotulo}</span>
-                    <span className="shrink-0 font-mono-nums text-text-primary">
-                      {formatBRL(sub.total)} · {pct(sub.percentualDaCategoria)}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-pill bg-surface-secondary">
-                    <div className="h-full rounded-pill" style={{ width: `${pct(sub.percentualDaCategoria)}%`, backgroundColor: cor }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex-1">
-            <span className="eyebrow">Maiores fornecedores</span>
-            <ul className="mt-1.5 flex flex-col gap-1">
-              {categoria.topFornecedores.map((f) => (
-                <li key={f.fornecedor} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="truncate text-text-secondary">{f.fornecedor}</span>
-                  <span className="shrink-0 font-mono-nums text-text-primary">{formatBRL(f.total)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
     </li>
   );
 }

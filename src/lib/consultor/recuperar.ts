@@ -1,5 +1,6 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { carregarDadosDashboard } from "@/lib/dashboards/consulta";
 import { carregarInsightsDaCompetencia } from "@/lib/analise/consulta";
 import { carregarRelatorioVersao, carregarVersaoVigentePorCompetencia } from "@/lib/relatorios/consulta";
@@ -97,6 +98,7 @@ async function buscarMaioresDespesas(
   dataInicio: string,
   dataFim: string,
   limite: number,
+  inativos: Set<string>,
 ): Promise<DespesaResumo[]> {
   if (cartaoIds.length === 0) return [];
 
@@ -107,7 +109,7 @@ async function buscarMaioresDespesas(
     .gte("data", dataInicio)
     .lte("data", dataFim);
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
-  const lancamentos = lancamentosRaw ?? [];
+  const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   if (lancamentos.length === 0) return [];
 
   const idsLancamentos = lancamentos.map((l) => l.id as string);
@@ -190,7 +192,8 @@ export async function recuperarDados(intencao: IntencaoEstruturada): Promise<Dad
     if (!intencao.dataInicio || !intencao.dataFim) return null;
     const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id").eq("perfil_id", perfilId);
     const cartaoIds = (cartoesDoPerfil ?? []).map((c) => c.id as string);
-    const despesas = await buscarMaioresDespesas(supabase, cartaoIds, intencao.dataInicio, intencao.dataFim, intencao.limite ?? 5);
+    const inativos = await carregarIdsInativos(supabase, perfilId);
+    const despesas = await buscarMaioresDespesas(supabase, cartaoIds, intencao.dataInicio, intencao.dataFim, intencao.limite ?? 5, inativos);
     return { tipo: "maiores_despesas", dataInicio: intencao.dataInicio, dataFim: intencao.dataFim, despesas };
   }
 

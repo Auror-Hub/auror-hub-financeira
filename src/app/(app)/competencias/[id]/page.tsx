@@ -33,6 +33,19 @@ export default async function CompetenciaDetailPage({ params }: { params: Promis
     (subcategoriasPorCategoria[paiId] ??= []).push({ id: t.id as string, rotulo: t.rotulo as string });
   }
 
+  const { data: cartoesRaw } = await supabase
+    .from("cartoes")
+    .select("id, instituicao, apelido, tipo, ultimos_4_digitos")
+    .eq("ativo", true)
+    .order("apelido", { ascending: true });
+  const cartoes = (cartoesRaw ?? []).map((c) => ({
+    id: c.id as string,
+    instituicao: c.instituicao as string,
+    apelido: (c.apelido as string) ?? null,
+    tipo: c.tipo as string,
+    ultimos4: (c.ultimos_4_digitos as string) ?? null,
+  }));
+
   // itensPorPagina bem alto — a proposta é justamente ver TODAS as despesas do mês antes de fechar, não paginar.
   const { itens: lancamentos } = await carregarLancamentosDecididos(
     { competenciaMes: detalhe.competencia.mesReferencia },
@@ -48,6 +61,7 @@ export default async function CompetenciaDetailPage({ params }: { params: Promis
       categorias={categorias}
       subcategoriasPorCategoria={subcategoriasPorCategoria}
       objetivos={objetivos}
+      cartoes={cartoes}
     />
   );
 }

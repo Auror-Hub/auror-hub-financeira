@@ -1,5 +1,6 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { carregarTaxonomia } from "./taxonomia";
 import type { ItemFila, TipoPendencia } from "@/lib/domain/inbox";
 import type { LancamentoBruto, PropostaClassificacao } from "@/lib/domain/types";
@@ -25,7 +26,7 @@ const VAZIO: CaixaDeEntradaDados = {
 
 /** Carrega os lançamentos reais + a proposta de classificação mais recente de cada um, pra Caixa de Entrada. */
 export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
-  const { supabase } = await perfilDoUsuarioAutenticado();
+  const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
 
   const { data: lancamentosRaw, error: errL } = await supabase
     .from("lancamentos_brutos")
@@ -35,7 +36,8 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
     .order("data", { ascending: false });
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
 
-  const lancamentosRows = lancamentosRaw ?? [];
+  const inativos = await carregarIdsInativos(supabase, perfilId);
+  const lancamentosRows = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   if (lancamentosRows.length === 0) return VAZIO;
 
   const idsLancamentos = lancamentosRows.map((l) => l.id as string);

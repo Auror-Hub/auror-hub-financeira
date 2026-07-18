@@ -1,5 +1,6 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { formatData } from "@/lib/format";
 
 export interface FiltrosDashboard {
@@ -54,7 +55,8 @@ export async function carregarDadosDashboard(filtros: FiltrosDashboard): Promise
     .gte("data", filtros.dataInicio)
     .lte("data", filtros.dataFim);
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
-  const lancamentos = lancamentosRaw ?? [];
+  const inativos = await carregarIdsInativos(supabase, perfilId);
+  const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   if (lancamentos.length === 0) return vazio;
 
   const idsLancamentos = lancamentos.map((l) => l.id as string);
@@ -215,6 +217,7 @@ async function agregarPeriodo(
   dataInicio: string,
   dataFim: string,
   objetivoId: string | undefined,
+  inativos: Set<string>,
 ): Promise<AgregadoPeriodo> {
   const vazio: AgregadoPeriodo = { total: 0, itens: [], porCategoria: new Map() };
 
@@ -225,7 +228,7 @@ async function agregarPeriodo(
     .gte("data", dataInicio)
     .lte("data", dataFim);
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
-  const lancamentos = lancamentosRaw ?? [];
+  const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   if (lancamentos.length === 0) return vazio;
 
   const ids = lancamentos.map((l) => l.id as string);
@@ -292,9 +295,10 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
   const anteriorInicio = isoDeData(anteriorInicioDate);
   const anteriorFim = isoDeData(anteriorFimDate);
 
+  const inativos = await carregarIdsInativos(supabase, perfilId);
   const [atual, anterior] = await Promise.all([
-    agregarPeriodo(supabase, cartaoIds, filtros.dataInicio, filtros.dataFim, filtros.objetivoId),
-    agregarPeriodo(supabase, cartaoIds, anteriorInicio, anteriorFim, filtros.objetivoId),
+    agregarPeriodo(supabase, cartaoIds, filtros.dataInicio, filtros.dataFim, filtros.objetivoId, inativos),
+    agregarPeriodo(supabase, cartaoIds, anteriorInicio, anteriorFim, filtros.objetivoId, inativos),
   ]);
 
   if (atual.itens.length === 0) {

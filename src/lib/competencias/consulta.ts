@@ -1,5 +1,6 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import type { Competencia, EstadoCompetencia } from "@/lib/domain/types";
 import type { CompetenciaDetalhe, DocumentoOrigemResumo, VersaoFechamento } from "@/lib/domain/competency";
 
@@ -25,7 +26,8 @@ export async function carregarCompetencias(): Promise<CompetenciaDetalhe[]> {
     .from("lancamentos_brutos")
     .select("id, competencia_calculada, valor, arquivo_origem_id");
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
-  const lancamentos = lancamentosRaw ?? [];
+  const inativos = await carregarIdsInativos(supabase, perfilId);
+  const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   if (lancamentos.length === 0) return [];
 
   const idsLancamentos = lancamentos.map((l) => l.id as string);

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { carregarTaxonomia } from "./taxonomia";
 import { carregarAliasesDoPerfil } from "./fornecedores";
 import { classificarLancamentos, VERSAO_CLASSIFICADOR, type LancamentoParaClassificar } from "./motor";
@@ -27,12 +28,14 @@ export async function classificarLancamentosPendentes(): Promise<ClassificarPend
   const cartaoIds = (cartoesDoPerfil ?? []).map((c) => c.id as string);
   if (cartaoIds.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0, restantes: 0 };
 
-  const { data: lancamentos, error: errLancamentos } = await supabase
+  const { data: lancamentosRaw, error: errLancamentos } = await supabase
     .from("lancamentos_brutos")
     .select("id, descricao_original, valor, data")
     .in("cartao_id", cartaoIds);
   if (errLancamentos) throw new Error("Falha ao buscar lançamentos: " + errLancamentos.message);
-  if (!lancamentos || lancamentos.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0, restantes: 0 };
+  const inativos = await carregarIdsInativos(supabase, perfilId);
+  const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
+  if (lancamentos.length === 0) return { totalProcessados: 0, porRegra: 0, porLlm: 0, restantes: 0 };
 
   const { data: propostasExistentes } = await supabase
     .from("classificacao_propostas")

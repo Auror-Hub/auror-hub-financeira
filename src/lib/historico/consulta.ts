@@ -1,5 +1,6 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 
 const ITENS_POR_PAGINA = 50;
 
@@ -14,6 +15,7 @@ export interface FiltrosHistorico {
 
 export interface ItemHistorico {
   lancamentoId: string;
+  cartaoId: string;
   data: string;
   fornecedorOriginal: string;
   descricaoOriginal: string;
@@ -25,6 +27,7 @@ export interface ItemHistorico {
   subcategoriaRotulo: string | null;
   objetivoId: string | null;
   objetivoRotulo: string | null;
+  contexto: string | null;
 }
 
 export interface HistoricoPaginado {
@@ -52,7 +55,7 @@ export async function carregarLancamentosDecididos(
 
   let query = supabase
     .from("lancamentos_brutos")
-    .select("id, data, fornecedor_original, descricao_original, valor, competencia_calculada")
+    .select("id, cartao_id, data, fornecedor_original, descricao_original, valor, competencia_calculada")
     .in("cartao_id", cartaoIds)
     .order("data", { ascending: false });
 
@@ -63,26 +66,28 @@ export async function carregarLancamentosDecididos(
 
   const { data: lancamentosRaw, error: errL } = await query;
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
-  const lancamentos = lancamentosRaw ?? [];
+  const inativos = await carregarIdsInativos(supabase, perfilId);
+  const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   if (lancamentos.length === 0) return { itens: [], total: 0, pagina: 1, totalPaginas: 0 };
 
   const idsLancamentos = lancamentos.map((l) => l.id as string);
   const { data: decisoesRaw, error: errDec } = await supabase
     .from("classificacao_decisoes")
-    .select("lancamento_id, categoria_id, subcategoria_id, objetivo_id, versao")
+    .select("lancamento_id, categoria_id, subcategoria_id, objetivo_id, contexto, versao")
     .in("lancamento_id", idsLancamentos)
     .order("versao", { ascending: true });
   if (errDec) throw new Error("Falha ao carregar decisões: " + errDec.message);
 
   const decisaoVigentePorLancamento = new Map<
     string,
-    { categoria_id: string | null; subcategoria_id: string | null; objetivo_id: string | null }
+    { categoria_id: string | null; subcategoria_id: string | null; objetivo_id: string | null; contexto: string | null }
   >();
   for (const d of decisoesRaw ?? []) {
     decisaoVigentePorLancamento.set(d.lancamento_id as string, {
       categoria_id: d.categoria_id as string | null,
       subcategoria_id: d.subcategoria_id as string | null,
       objetivo_id: d.objetivo_id as string | null,
+      contexto: d.contexto as string | null,
     });
   }
 
@@ -105,6 +110,7 @@ export async function carregarLancamentosDecididos(
       const decisao = decisaoVigentePorLancamento.get(l.id as string)!;
       return {
         lancamentoId: l.id as string,
+        cartaoId: l.cartao_id as string,
         data: l.data as string,
         fornecedorOriginal: l.fornecedor_original as string,
         descricaoOriginal: l.descricao_original as string,
@@ -116,6 +122,7 @@ export async function carregarLancamentosDecididos(
         subcategoriaRotulo: decisao.subcategoria_id ? rotuloPorTermo.get(decisao.subcategoria_id) ?? null : null,
         objetivoId: decisao.objetivo_id,
         objetivoRotulo: decisao.objetivo_id ? rotuloPorTermo.get(decisao.objetivo_id) ?? null : null,
+        contexto: decisao.contexto,
       };
     })
     .filter((item) => !filtros.categoriaId || item.categoriaId === filtros.categoriaId);
