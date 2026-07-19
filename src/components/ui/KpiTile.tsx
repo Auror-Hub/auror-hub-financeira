@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 
 export interface KpiTileProps {
@@ -6,6 +7,8 @@ export interface KpiTileProps {
   hint?: string;
   /** Tom aplicado ao valor. Padrão: texto primário neutro. */
   tone?: "default" | "success" | "warning" | "danger";
+  /** Rota pros lançamentos que compõem este número (drill-down, ADR-007/Fase 0). */
+  href?: string;
 }
 
 const toneClasses: Record<NonNullable<KpiTileProps["tone"]>, string> = {
@@ -15,16 +18,24 @@ const toneClasses: Record<NonNullable<KpiTileProps["tone"]>, string> = {
   danger: "text-state-danger",
 };
 
-export function KpiTile({ label, value, hint, tone = "default" }: KpiTileProps) {
-  return (
-    <div className="flex flex-col gap-1 bg-surface-primary p-4">
+export function KpiTile({ label, value, hint, tone = "default", href }: KpiTileProps) {
+  const conteudo = (
+    <>
       <span className="eyebrow">{label}</span>
-      <span className={cn("font-mono-nums text-kpi font-bold tracking-tight", toneClasses[tone])}>
-        {value}
-      </span>
+      <span className={cn("font-mono-nums text-kpi font-bold tracking-tight", toneClasses[tone])}>{value}</span>
       {hint && <span className="text-sm text-text-muted">{hint}</span>}
-    </div>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="flex flex-col gap-1 bg-surface-primary p-4 transition-colors hover:bg-surface-secondary">
+        {conteudo}
+      </Link>
+    );
+  }
+
+  return <div className="flex flex-col gap-1 bg-surface-primary p-4">{conteudo}</div>;
 }
 
 export interface KpiStripProps {

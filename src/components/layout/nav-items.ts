@@ -10,6 +10,7 @@ import {
   History,
   FileText,
   LayoutDashboard,
+  Target,
   MessageCircle,
   Settings,
 } from "lucide-react";
@@ -33,6 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/historico", label: "Histórico", icon: History, implemented: true },
   { href: "/relatorios", label: "Relatórios", icon: FileText, implemented: true },
   { href: "/dashboards", label: "Dashboards", icon: LayoutDashboard, implemented: true },
+  { href: "/metas", label: "Metas", icon: Target, implemented: true },
   { href: "/consultor", label: "Consultor", icon: MessageCircle, implemented: true },
-  { href: "/configuracoes", label: "Configurações", icon: Settings, implemented: false },
+  { href: "/configuracoes", label: "Configurações", icon: Settings, implemented: true },
 ];

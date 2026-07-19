@@ -85,9 +85,14 @@ function BolhaConsultor({ mensagem }: { mensagem: MensagemConsultor }) {
   );
 }
 
-export function ConsultantScreen() {
-  const [conversaId, setConversaId] = useState<string | null>(null);
-  const [mensagens, setMensagens] = useState<MensagemConsultor[]>([]);
+export interface ConsultantScreenProps {
+  conversaIdInicial: string | null;
+  mensagensIniciais: MensagemConsultor[];
+}
+
+export function ConsultantScreen({ conversaIdInicial, mensagensIniciais }: ConsultantScreenProps) {
+  const [conversaId, setConversaId] = useState<string | null>(conversaIdInicial);
+  const [mensagens, setMensagens] = useState<MensagemConsultor[]>(mensagensIniciais);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);

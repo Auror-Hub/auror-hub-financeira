@@ -77,6 +77,22 @@ export async function confirmarClassificacao(lancamentoId: string): Promise<void
   revalidatePath("/caixa-de-entrada");
 }
 
+/**
+ * Rearquitetura (Fase 0, ADR-007): "revisar depois" persistido — grava um
+ * evento 'adiou' em vez de um Set local que sumia ao recarregar. Escondido da
+ * fila só até o fim do dia calendário em que foi adiado (ver
+ * carregarCaixaDeEntrada); reaparece sozinho na próxima sessão, sem job de
+ * limpeza.
+ */
+export async function adiarRevisao(lancamentoId: string): Promise<void> {
+  const { supabase, user } = await perfilDoUsuarioAutenticado();
+
+  const { error } = await supabase.from("eventos_revisao").insert({ lancamento_id: lancamentoId, tipo: "adiou", usuario_id: user.id });
+  if (error) throw new Error("Falha ao adiar revisão: " + error.message);
+
+  revalidatePath("/caixa-de-entrada");
+}
+
 export interface CorrecaoClassificacao {
   categoriaId: string;
   subcategoriaId?: string;

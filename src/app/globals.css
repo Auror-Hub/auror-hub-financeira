@@ -102,9 +102,13 @@
   --font-ui: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-dm-mono), ui-monospace, "Fira Mono", monospace;
 
+  /* Rearquitetura (Fase 0, ADR-007): base/sm subiram pra 14px/12px (auditoria
+     apontou 13px/11.5px como pequeno demais). --text-xs (10px, usado em
+     "eyebrow"/rótulos) fica de fora desta rodada — revisar caso a caso, não
+     em bloco, pra não quebrar layouts que dependem do tamanho pequeno atual. */
   --text-xs: 0.625rem;
-  --text-sm: 0.71875rem;
-  --text-base: 0.8125rem;
+  --text-sm: 0.75rem;
+  --text-base: 0.875rem;
   --text-md: 0.875rem;
   --text-lg: 1rem;
   --text-xl: 1.125rem;
@@ -157,6 +161,30 @@ body {
 .font-mono-nums {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* Rearquitetura (Fase 0, ADR-007): foco visível global — a auditoria achou
+   zero regra de :focus-visible no app inteiro; a maioria dos botões não
+   tinha nenhum estado de foco. `:focus-visible` já ignora foco por clique de
+   mouse nativamente, então isto não aparece pra quem usa mouse/touch. */
+:focus-visible {
+  outline: 2px solid var(--palette-indigo);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Rearquitetura (Fase 0, ADR-007): respeita prefers-reduced-motion — cobre
+   toda transição/animação existente (inclusive o Skeleton pulsante) sem
+   precisar marcar cada uma individualmente. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @keyframes drawer-in {

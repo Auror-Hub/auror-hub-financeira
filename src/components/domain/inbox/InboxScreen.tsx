@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox, Layers, PartyPopper, Sparkles } from "lucide-react";
 import type { ItemFila, TipoPendencia } from "@/lib/domain/inbox";
 import { classificarLancamentosPendentes } from "@/lib/classificacao/actions";
 import {
   adicionarContexto,
+  adiarRevisao,
   confirmarClassificacao,
   corrigirClassificacao,
   corrigirLote,
@@ -17,6 +18,8 @@ import {
 import { criarRegraManual } from "@/lib/regras/acoes";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { ReviewCard } from "./ReviewCard";
 import { TransactionDrawer } from "./TransactionDrawer";
 import { BatchReviewPanel } from "./BatchReviewPanel";
@@ -37,23 +40,32 @@ export interface InboxScreenProps {
   subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
   lancamentosSemProposta: number;
+  adiadosHoje: number;
 }
 
-export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCategoria, objetivos, lancamentosSemProposta }: InboxScreenProps) {
+export function InboxScreen({
+  itens,
+  rotulos,
+  categorias,
+  subcategoriasPorCategoria,
+  objetivos,
+  lancamentosSemProposta,
+  adiadosHoje,
+}: InboxScreenProps) {
   const router = useRouter();
   const [pendenteClassificacao, startTransition] = useTransition();
   const [pendenteAcao, startAcaoTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [progresso, setProgresso] = useState<{ feitos: number; total: number } | null>(null);
 
-  /** "Revisar depois" não persiste (não há ENT-REVIEW-EVENT pra isso) — só some da fila até recarregar. */
-  const [adiados, setAdiados] = useState<Set<string>>(new Set());
   const [filtroPendencia, setFiltroPendencia] = useState<TipoPendencia | "todas">("todas");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("confianca");
   const [itemAbertoId, setItemAbertoId] = useState<string | null>(null);
   const [grupoLoteAberto, setGrupoLoteAberto] = useState<string | null>(null);
 
-  const pendentes = useMemo(() => itens.filter((i) => !adiados.has(i.lancamento.id)), [itens, adiados]);
+  // Rearquitetura (Fase 0, ADR-007): "revisar depois" agora é persistido
+  // (evento 'adiou') — `itens` já vem do servidor sem os adiados de hoje.
+  const pendentes = itens;
 
   const tiposPresentes = useMemo(() => {
     const set = new Set<TipoPendencia>();
@@ -89,7 +101,6 @@ export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCatego
     return Array.from(map.entries()).filter(([, itens]) => itens.length >= 2);
   }, [pendentes]);
 
-  const totalAdiados = adiados.size;
   const itemAberto = filtrados.find((i) => i.lancamento.id === itemAbertoId) ?? null;
   const indexAberto = itemAberto ? filtrados.indexOf(itemAberto) : -1;
 
@@ -107,8 +118,7 @@ export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCatego
   }
 
   function adiar(id: string) {
-    setAdiados((prev) => new Set(prev).add(id));
-    if (itemAbertoId === id) setItemAbertoId(null);
+    executarAcao(() => adiarRevisao(id), () => setItemAbertoId((atual) => (atual === id ? null : atual)));
   }
 
   function confirmar(id: string) {
@@ -178,6 +188,20 @@ export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCatego
     });
   }
 
+  // Rearquitetura (Fase 0, ADR-007): classificação dispara automaticamente
+  // ao chegar aqui com lançamentos sem proposta (ex.: direto após concluir
+  // uma importação) — o botão "Gerar propostas" continua existindo como
+  // fallback manual pra reprocessamento. `autoIniciadoRef` garante que só
+  // dispara uma vez por chegada à tela, mesmo que o componente rerenderize.
+  const autoIniciadoRef = useRef(false);
+  useEffect(() => {
+    if (lancamentosSemProposta > 0 && !autoIniciadoRef.current) {
+      autoIniciadoRef.current = true;
+      gerarPropostas();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lancamentosSemProposta]);
+
   const bannerPendentesClassificacao = lancamentosSemProposta > 0 && (
     <div className="flex items-center justify-between gap-3 rounded-card border border-dashed border-indigo/40 bg-indigo-tint p-3">
       <span className="flex items-center gap-2 text-base text-action-primary">
@@ -194,16 +218,17 @@ export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCatego
     return (
       <div className="flex flex-col gap-4">
         {bannerPendentesClassificacao}
-        {erro && <p className="text-sm text-terra">{erro}</p>}
-        <div className="flex flex-col items-center gap-3 rounded-card bg-surface-primary p-10 text-center shadow-[var(--shadow-card)]">
-          <PartyPopper size={28} className="text-state-success" strokeWidth={1.5} />
-          <h1 className="text-xl font-semibold text-text-primary">Nenhuma pendência no momento</h1>
-          <p className="max-w-md text-base text-text-secondary">
-            {itens.length === 0
+        {erro && <ErrorState texto={erro} />}
+        <EmptyState
+          icon={PartyPopper}
+          tone="success"
+          title="Nenhuma pendência no momento"
+          description={
+            adiadosHoje === 0
               ? "Nenhum lançamento aguardando revisão — envie uma fatura ou aguarde a classificação para começar."
-              : `Você adiou ${totalAdiados} lançamento${totalAdiados === 1 ? "" : "s"} nesta sessão — eles voltam a aparecer ao recarregar a página.`}
-          </p>
-        </div>
+              : `Você adiou ${adiadosHoje} lançamento${adiadosHoje === 1 ? "" : "s"} hoje — eles voltam a aparecer amanhã.`
+          }
+        />
       </div>
     );
   }
@@ -211,7 +236,7 @@ export function InboxScreen({ itens, rotulos, categorias, subcategoriasPorCatego
   return (
     <div className="flex flex-col gap-5">
       {bannerPendentesClassificacao}
-      {erro && <p className="text-sm text-terra">{erro}</p>}
+      {erro && <ErrorState texto={erro} />}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

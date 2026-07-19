@@ -46,14 +46,23 @@ export default async function HomePage() {
         <p className="max-w-3xl text-lg leading-relaxed text-text-secondary">{resumo.narrativaPrincipal}</p>
       </section>
 
-      {/* Números-chave */}
+      {/* Números-chave — cada um abre os lançamentos que o compõem (ADR-007/Fase 0) */}
       <KpiStrip>
-        <KpiTile label="Total analisado" value={formatBRL(resumo.totalAnalisado)} />
-        <KpiTile label="Lançamentos" value={String(resumo.quantidadeLancamentos)} />
+        <KpiTile
+          label="Total analisado"
+          value={formatBRL(resumo.totalAnalisado)}
+          href={`/historico?competenciaMes=${resumo.competencia.mesReferencia}`}
+        />
+        <KpiTile
+          label="Lançamentos"
+          value={String(resumo.quantidadeLancamentos)}
+          href={`/historico?competenciaMes=${resumo.competencia.mesReferencia}`}
+        />
         <KpiTile
           label="Aguardando revisão"
           value={String(resumo.itensAguardandoRevisao)}
           tone={resumo.itensAguardandoRevisao > 0 ? "warning" : "success"}
+          href="/caixa-de-entrada"
         />
         {resumo.variacaoVsMedia !== null && (
           <KpiTile
@@ -61,6 +70,7 @@ export default async function HomePage() {
             value={formatVariacaoPercentual(resumo.variacaoVsMedia)}
             tone={resumo.variacaoVsMedia > 0 ? "warning" : "success"}
             hint="Variação do total gasto"
+            href="/dashboards?preset=atual"
           />
         )}
       </KpiStrip>

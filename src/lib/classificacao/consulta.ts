@@ -1,6 +1,7 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
+import { limiteInicioDoDia } from "@/lib/data/limites";
 import { carregarTaxonomia } from "./taxonomia";
 import type { ItemFila, TipoPendencia } from "@/lib/domain/inbox";
 import type { LancamentoBruto, PropostaClassificacao } from "@/lib/domain/types";
@@ -13,6 +14,8 @@ export interface CaixaDeEntradaDados {
   subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
   lancamentosSemProposta: number;
+  /** Itens adiados hoje (calendário) — só pra exibir na UI; já excluídos de `itens`. */
+  adiadosHoje: number;
 }
 
 const VAZIO: CaixaDeEntradaDados = {
@@ -22,6 +25,7 @@ const VAZIO: CaixaDeEntradaDados = {
   subcategoriasPorCategoria: {},
   objetivos: [],
   lancamentosSemProposta: 0,
+  adiadosHoje: 0,
 };
 
 /** Carrega os lançamentos reais + a proposta de classificação mais recente de cada um, pra Caixa de Entrada. */
@@ -42,6 +46,8 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
 
   const idsLancamentos = lancamentosRows.map((l) => l.id as string);
 
+  const inicioHoje = limiteInicioDoDia(new Date());
+
   const [
     { data: propostasRaw, error: errP },
     taxonomia,
@@ -49,6 +55,7 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
     { data: duplicatasRaw, error: errD },
     { data: decisoesRaw, error: errDec },
     { data: decisoesHistoricoRaw, error: errDecHist },
+    { data: adiadosRaw, error: errAdiados },
   ] = await Promise.all([
     supabase.from("classificacao_propostas").select("*").in("lancamento_id", idsLancamentos).order("criado_em", { ascending: false }),
     carregarTaxonomia(supabase),
@@ -65,16 +72,26 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
       .in("lancamento_id", idsLancamentos)
       .in("status", ["confirmada", "corrigida"])
       .order("criado_em", { ascending: false }),
+    // Rearquitetura (Fase 0, ADR-007): "revisar depois" persistido — só
+    // esconde até o fim do dia calendário em que foi adiado.
+    supabase
+      .from("eventos_revisao")
+      .select("lancamento_id")
+      .in("lancamento_id", idsLancamentos)
+      .eq("tipo", "adiou")
+      .gte("criado_em", inicioHoje.toISOString()),
   ]);
   if (errP) throw new Error("Falha ao carregar propostas de classificação: " + errP.message);
   if (errF) throw new Error("Falha ao carregar fornecedores padronizados: " + errF.message);
   if (errD) throw new Error("Falha ao carregar possíveis duplicatas: " + errD.message);
   if (errDec) throw new Error("Falha ao carregar decisões: " + errDec.message);
   if (errDecHist) throw new Error("Falha ao carregar histórico de decisões: " + errDecHist.message);
+  if (errAdiados) throw new Error("Falha ao carregar itens adiados: " + errAdiados.message);
 
   // Um lançamento com decisão já gravada não é mais "pendente" — essa é a
   // definição real agora (BE-4), substituindo o estado local por sessão do BE-3.
   const lancamentosComDecisao = new Set((decisoesRaw ?? []).map((d) => d.lancamento_id as string));
+  const lancamentosAdiadosHoje = new Set((adiadosRaw ?? []).map((a) => a.lancamento_id as string));
 
   // Tópico B: fornecedor normalizado → categorias distintas já decididas no
   // passado (decisão vigente = a mais recente por lançamento, já ordenado desc).
@@ -127,6 +144,7 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
 
   for (const l of lancamentosRows) {
     if (lancamentosComDecisao.has(l.id as string)) continue;
+    if (lancamentosAdiadosHoje.has(l.id as string)) continue;
 
     const propostaRow = propostaPorLancamento.get(l.id as string);
     if (!propostaRow) {
@@ -238,5 +256,13 @@ export async function carregarCaixaDeEntrada(): Promise<CaixaDeEntradaDados> {
     subcategoriasPorCategoria[t.termoPaiId] = lista;
   }
 
-  return { itens, rotulos, categorias, subcategoriasPorCategoria, objetivos, lancamentosSemProposta: semProposta };
+  return {
+    itens,
+    rotulos,
+    categorias,
+    subcategoriasPorCategoria,
+    objetivos,
+    lancamentosSemProposta: semProposta,
+    adiadosHoje: lancamentosAdiadosHoje.size,
+  };
 }

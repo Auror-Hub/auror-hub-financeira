@@ -155,9 +155,7 @@ export function parseDataSemAno(diaMes: string, dataReferenciaIso: string): stri
 }
 
 /** Competência = mês de ocorrência do gasto, nunca o vencimento (premissa #3 da arquitetura). */
-export function calcularCompetencia(dataIso: string): string {
-  return dataIso.slice(0, 7);
-}
+export { calcularCompetencia } from "@/lib/data/competencia";
 
 /** Hash determinístico para deduplicação: mesma data+valor+fornecedor+cartão = provável duplicata. */
 export function calcularIdentificadorDeduplicacao(params: {
