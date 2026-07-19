@@ -16,6 +16,8 @@ import {
   type CorrecaoClassificacao,
 } from "@/lib/classificacao/decisoes";
 import { criarRegraManual } from "@/lib/regras/acoes";
+import { conciliarProvisorio, marcarNaoEncontrado, descartarProvisorio } from "@/lib/provisorios/acoes";
+import type { ProvisorioPendente } from "@/lib/provisorios/consulta";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -23,6 +25,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { ReviewCard } from "./ReviewCard";
 import { TransactionDrawer } from "./TransactionDrawer";
 import { BatchReviewPanel } from "./BatchReviewPanel";
+import { ProvisorioReviewCard } from "./ProvisorioReviewCard";
 
 type Ordenacao = "confianca" | "valor" | "data" | "fornecedor";
 
@@ -41,6 +44,7 @@ export interface InboxScreenProps {
   objetivos: { id: string; rotulo: string }[];
   lancamentosSemProposta: number;
   adiadosHoje: number;
+  provisorios: ProvisorioPendente[];
 }
 
 export function InboxScreen({
@@ -51,6 +55,7 @@ export function InboxScreen({
   objetivos,
   lancamentosSemProposta,
   adiadosHoje,
+  provisorios,
 }: InboxScreenProps) {
   const router = useRouter();
   const [pendenteClassificacao, startTransition] = useTransition();
@@ -152,6 +157,18 @@ export function InboxScreen({
     executarAcao(() => adicionarContexto(id, texto));
   }
 
+  function conciliar(provisorioId: string, lancamentoId: string) {
+    executarAcao(() => conciliarProvisorio(provisorioId, lancamentoId));
+  }
+
+  function naoEncontrado(provisorioId: string) {
+    executarAcao(() => marcarNaoEncontrado(provisorioId));
+  }
+
+  function descartarProvisorioAcao(provisorioId: string) {
+    executarAcao(() => descartarProvisorio(provisorioId));
+  }
+
   function confirmarGrupo(ids: string[]) {
     executarAcao(async () => {
       for (const id of ids) await confirmarClassificacao(id);
@@ -214,11 +231,30 @@ export function InboxScreen({
     </div>
   );
 
+  const secaoProvisorios = provisorios.length > 0 && (
+    <div className="flex flex-col gap-3">
+      <span className="eyebrow">
+        Lançamentos provisórios aguardando conciliação · {provisorios.length}
+      </span>
+      {provisorios.map((p) => (
+        <ProvisorioReviewCard
+          key={p.id}
+          provisorio={p}
+          pendente={pendenteAcao}
+          onConciliar={(lancamentoId) => conciliar(p.id, lancamentoId)}
+          onNaoEncontrado={() => naoEncontrado(p.id)}
+          onDescartar={() => descartarProvisorioAcao(p.id)}
+        />
+      ))}
+    </div>
+  );
+
   if (pendentes.length === 0) {
     return (
       <div className="flex flex-col gap-4">
         {bannerPendentesClassificacao}
         {erro && <ErrorState texto={erro} />}
+        {secaoProvisorios}
         <EmptyState
           icon={PartyPopper}
           tone="success"
@@ -237,6 +273,7 @@ export function InboxScreen({
     <div className="flex flex-col gap-5">
       {bannerPendentesClassificacao}
       {erro && <ErrorState texto={erro} />}
+      {secaoProvisorios}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
