@@ -23,3 +23,31 @@ export function diasRestantesNoMes(mesReferencia: string, hoje: Date): number | 
   const ultimoDia = new Date(ano, mes, 0).getDate();
   return ultimoDia - hoje.getDate();
 }
+
+/** Dias já decorridos (incluindo hoje) e dias totais do mês civil de `mesReferencia`. null se não for o mês corrente. */
+export function diasDecorridosNoMes(mesReferencia: string, hoje: Date): { decorridos: number; total: number } | null {
+  const mesAtualIso = hoje.toISOString().slice(0, 7);
+  if (mesReferencia !== mesAtualIso) return null;
+
+  const [ano, mes] = mesReferencia.split("-").map(Number);
+  const total = new Date(ano, mes, 0).getDate();
+  return { decorridos: hoje.getDate(), total };
+}
+
+/** "2026-07", 3 => ["2026-06", "2026-05", "2026-04"] (mais recente primeiro). */
+export function mesesAnteriores(mesReferencia: string, quantidade: number): string[] {
+  const [ano, mes] = mesReferencia.split("-").map(Number);
+  const resultado: string[] = [];
+  for (let i = 1; i <= quantidade; i++) {
+    const data = new Date(ano, mes - 1 - i, 1);
+    resultado.push(`${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return resultado;
+}
+
+/** Próximo mês civil de `mesReferencia`. "2026-12" => "2027-01". */
+export function proximoMes(mesReferencia: string): string {
+  const [ano, mes] = mesReferencia.split("-").map(Number);
+  const data = new Date(ano, mes, 1);
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+}

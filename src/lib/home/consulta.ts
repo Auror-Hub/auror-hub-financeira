@@ -216,14 +216,14 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
   const metas = await carregarMetas();
   const metasAtivas = metas.filter((m) => m.status === "ativa");
   for (const meta of metasAtivas) {
-    const alerta = gerarAlerta(meta.categoriaRotulo, meta.valorLimite, meta.gastoAtual, {
+    const alerta = gerarAlerta(meta.rotuloCompleto, meta.valorLimiteEfetivo, meta.gastoAtual, {
       percentual: meta.percentual,
       status: meta.statusProgresso,
     });
     if (alerta) alertas.push(alerta);
   }
 
-  const planejado = metasAtivas.length > 0 ? metasAtivas.reduce((soma, m) => soma + m.valorLimite, 0) : null;
+  const planejado = metasAtivas.length > 0 ? metasAtivas.reduce((soma, m) => soma + m.valorLimiteEfetivo, 0) : null;
   // totalConsolidado é a soma bruta de `valor` (despesas em centavos negativos) —
   // somar (não subtrair) equivale a descontar o gasto absoluto do planejado.
   const restante = planejado !== null ? planejado + atual.totalConsolidado : null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularCompetencia, diasRestantesNoMes } from "./competencia";
+import { calcularCompetencia, diasDecorridosNoMes, diasRestantesNoMes, mesesAnteriores, proximoMes } from "./competencia";
 
 describe("calcularCompetencia", () => {
   it("extrai o mês (AAAA-MM) de uma data ISO completa", () => {
@@ -28,5 +28,41 @@ describe("diasRestantesNoMes", () => {
   it("retorna null quando a competência não é o mês corrente", () => {
     expect(diasRestantesNoMes("2026-06", new Date("2026-07-18T12:00:00Z"))).toBeNull();
     expect(diasRestantesNoMes("2026-08", new Date("2026-07-18T12:00:00Z"))).toBeNull();
+  });
+});
+
+describe("diasDecorridosNoMes", () => {
+  it("calcula decorridos e total quando é o mês corrente", () => {
+    expect(diasDecorridosNoMes("2026-07", new Date("2026-07-18T12:00:00Z"))).toEqual({ decorridos: 18, total: 31 });
+  });
+
+  it("retorna null quando não é o mês corrente", () => {
+    expect(diasDecorridosNoMes("2026-06", new Date("2026-07-18T12:00:00Z"))).toBeNull();
+  });
+});
+
+describe("mesesAnteriores", () => {
+  it("gera os N meses anteriores, mais recente primeiro", () => {
+    expect(mesesAnteriores("2026-07", 3)).toEqual(["2026-06", "2026-05", "2026-04"]);
+  });
+
+  it("atravessa virada de ano", () => {
+    expect(mesesAnteriores("2026-02", 3)).toEqual(["2026-01", "2025-12", "2025-11"]);
+  });
+
+  it("funciona com quantidade 1 e 12", () => {
+    expect(mesesAnteriores("2026-07", 1)).toEqual(["2026-06"]);
+    expect(mesesAnteriores("2026-07", 12)).toHaveLength(12);
+    expect(mesesAnteriores("2026-07", 12)[11]).toBe("2025-07");
+  });
+});
+
+describe("proximoMes", () => {
+  it("avança um mês dentro do mesmo ano", () => {
+    expect(proximoMes("2026-06")).toBe("2026-07");
+  });
+
+  it("atravessa virada de ano", () => {
+    expect(proximoMes("2026-12")).toBe("2027-01");
   });
 });

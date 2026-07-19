@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Target } from "lucide-react";
-import type { MetaComProgresso } from "@/lib/metas/consulta";
+import type { MetaComProgresso, TipoMeta } from "@/lib/metas/consulta";
 import { criarMeta, editarMeta, desativarMeta } from "@/lib/metas/acoes";
 import { formatBRL } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
@@ -26,32 +26,39 @@ const PROGRESSO_COR: Record<MetaComProgresso["statusProgresso"], string> = {
 };
 
 const ROTULO_META_GERAL = "Orçamento geral (todas as categorias)";
+const PERIODO_ROTULO: Record<number, string> = { 1: "mês anterior", 3: "últimos 3 meses", 6: "últimos 6 meses", 12: "últimos 12 meses" };
 
 export interface MetaListScreenProps {
   metas: MetaComProgresso[];
   categorias: { id: string; rotulo: string }[];
+  subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
+  objetivos: { id: string; rotulo: string }[];
 }
 
-export function MetaListScreen({ metas, categorias }: MetaListScreenProps) {
+export function MetaListScreen({ metas, categorias, subcategoriasPorCategoria, objetivos }: MetaListScreenProps) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
   const [metaEditando, setMetaEditando] = useState<MetaComProgresso | null>(null);
+  const [tipoSelecionado, setTipoSelecionado] = useState<TipoMeta>("limite_absoluto");
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<string>("");
 
   const ativas = metas.filter((m) => m.status === "ativa");
   const inativas = metas.filter((m) => m.status === "inativa");
-  const categoriasComMetaAtiva = new Set(ativas.map((m) => m.categoriaId).filter((id): id is string => id !== null));
-  const jaTemMetaGeralAtiva = ativas.some((m) => m.categoriaId === null);
 
   function abrirNova() {
     setMetaEditando(null);
+    setTipoSelecionado("limite_absoluto");
+    setCategoriaSelecionada("");
     setErro(null);
     setModalAberto(true);
   }
 
   function abrirEdicao(meta: MetaComProgresso) {
     setMetaEditando(meta);
+    setTipoSelecionado(meta.tipo);
+    setCategoriaSelecionada(meta.categoriaId ?? "");
     setErro(null);
     setModalAberto(true);
   }
@@ -85,6 +92,8 @@ export function MetaListScreen({ metas, categorias }: MetaListScreenProps) {
     });
   }
 
+  const subcategoriasDisponiveis = categoriaSelecionada ? subcategoriasPorCategoria[categoriaSelecionada] ?? [] : [];
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
@@ -97,8 +106,8 @@ export function MetaListScreen({ metas, categorias }: MetaListScreenProps) {
         </Button>
       </div>
       <p className="text-sm text-text-muted">
-        Teto de gasto recorrente por categoria (ou geral) — comparado com o gasto real da competência atual. Alerta na Home a
-        partir de 80% do limite.
+        Teto de gasto (valor fixo, ou redução % sobre a média histórica) por categoria/subcategoria/objetivo, ou geral — comparado
+        com o gasto real da competência atual. Alerta na Home a partir de 80% do limite.
       </p>
 
       {erro && <ErrorState texto={erro} />}
@@ -140,41 +149,115 @@ export function MetaListScreen({ metas, categorias }: MetaListScreenProps) {
       >
         <form id="form-meta" action={salvar} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            Tipo de meta
+            <select
+              name="tipo"
+              value={tipoSelecionado}
+              onChange={(e) => setTipoSelecionado(e.target.value as TipoMeta)}
+              className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+            >
+              <option value="limite_absoluto">Valor fixo</option>
+              <option value="reducao_percentual">Redução % sobre histórico</option>
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
             Categoria
             <select
               name="categoriaId"
-              defaultValue={metaEditando?.categoriaId ?? ""}
+              value={categoriaSelecionada}
+              onChange={(e) => setCategoriaSelecionada(e.target.value)}
               className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
             >
               <option value="">{ROTULO_META_GERAL}</option>
               {categorias.map((c) => (
-                <option
-                  key={c.id}
-                  value={c.id}
-                  disabled={categoriasComMetaAtiva.has(c.id) && metaEditando?.categoriaId !== c.id}
-                >
+                <option key={c.id} value={c.id}>
                   {c.rotulo}
                 </option>
               ))}
             </select>
-            {!metaEditando && jaTemMetaGeralAtiva && (
-              <span className="text-xs text-text-muted">Já existe um orçamento geral ativo — escolha uma categoria.</span>
-            )}
           </label>
+
+          {categoriaSelecionada && subcategoriasDisponiveis.length > 0 && (
+            <label className="flex flex-col gap-1 text-sm text-text-secondary">
+              Subcategoria (opcional)
+              <select
+                name="subcategoriaId"
+                defaultValue={metaEditando?.subcategoriaId ?? ""}
+                className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+              >
+                <option value="">Todas as subcategorias</option>
+                {subcategoriasDisponiveis.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.rotulo}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           <label className="flex flex-col gap-1 text-sm text-text-secondary">
-            Limite (R$)
-            <Input
-              type="number"
-              name="valorLimite"
-              min="0.01"
-              step="0.01"
-              defaultValue={metaEditando ? (metaEditando.valorLimite / 100).toFixed(2) : ""}
-              required
-            />
+            Objetivo (opcional)
+            <select
+              name="objetivoId"
+              defaultValue={metaEditando?.objetivoId ?? ""}
+              className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+            >
+              <option value="">Todos os objetivos</option>
+              {objetivos.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.rotulo}
+                </option>
+              ))}
+            </select>
           </label>
+
+          {tipoSelecionado === "limite_absoluto" ? (
+            <label className="flex flex-col gap-1 text-sm text-text-secondary">
+              Limite (R$)
+              <Input
+                type="number"
+                name="valorLimite"
+                min="0.01"
+                step="0.01"
+                defaultValue={metaEditando?.valorLimite ? (metaEditando.valorLimite / 100).toFixed(2) : ""}
+                required
+              />
+            </label>
+          ) : (
+            <>
+              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                Comparar com
+                <select
+                  name="periodoMeses"
+                  defaultValue={metaEditando?.periodoMeses ?? 3}
+                  className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+                >
+                  {Object.entries(PERIODO_ROTULO).map(([valor, rotulo]) => (
+                    <option key={valor} value={valor}>
+                      {rotulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                Redução alvo (%)
+                <Input
+                  type="number"
+                  name="percentualAlvo"
+                  min="1"
+                  max="99"
+                  step="1"
+                  defaultValue={metaEditando?.percentualAlvo ? Math.round(metaEditando.percentualAlvo * 100) : ""}
+                  required
+                />
+              </label>
+            </>
+          )}
+
           {metaEditando && (
             <p className="text-xs text-text-muted">
-              Salvar cria uma nova versão da meta — a atual (R$ {formatBRL(metaEditando.valorLimite)}) fica inativa no histórico.
+              Salvar cria uma nova versão da meta — a atual fica inativa no histórico.
             </p>
           )}
         </form>
@@ -200,10 +283,16 @@ function MetaCard({
     <Card className={meta.status === "inativa" ? "opacity-60" : undefined}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <span className="text-base text-text-primary">{meta.categoriaRotulo}</span>
+          <span className="text-base text-text-primary">{meta.rotuloCompleto}</span>
           <span className="font-mono-nums text-sm text-text-secondary">
-            {formatBRL(meta.gastoAtual)} de {formatBRL(meta.valorLimite)} · {Math.round(meta.percentual * 100)}%
+            {formatBRL(meta.gastoAtual)} de {formatBRL(meta.valorLimiteEfetivo)} · {Math.round(meta.percentual * 100)}%
           </span>
+          {meta.tipo === "reducao_percentual" && meta.baselineMedia !== null && (
+            <span className="text-xs text-text-muted">
+              Meta: {Math.round((meta.percentualAlvo ?? 0) * 100)}% de redução vs. {PERIODO_ROTULO[meta.periodoMeses ?? 1]} (média de{" "}
+              {formatBRL(meta.baselineMedia)})
+            </span>
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
           <Badge tone={STATUS_TONE[meta.status]}>{meta.status}</Badge>

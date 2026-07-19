@@ -8,6 +8,7 @@ import type { CompetenciaDetalhe, MotivoReabertura } from "@/lib/domain/competen
 import type { ItemHistorico } from "@/lib/historico/consulta";
 import { fecharCompetencia, reabrirCompetencia } from "@/lib/competencias/acoes";
 import { formatBRL, formatCompetencia, formatData } from "@/lib/format";
+import { proximoMes } from "@/lib/data/competencia";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 import { Button } from "@/components/ui/Button";
@@ -43,6 +44,7 @@ export function CompetencyDetailScreen({
   const [erro, setErro] = useState<string | null>(null);
   const [modalFechar, setModalFechar] = useState(false);
   const [modalReabrir, setModalReabrir] = useState(false);
+  const [fechamentoConcluido, setFechamentoConcluido] = useState(false);
 
   const podeReabrir = detalhe.competencia.estado === "fechada";
   const podeFechar =
@@ -56,6 +58,7 @@ export function CompetencyDetailScreen({
       try {
         await fecharCompetencia(detalhe.competencia.id);
         setModalFechar(false);
+        setFechamentoConcluido(true);
         router.refresh();
       } catch (e) {
         setErro(e instanceof Error ? e.message : "Falha ao fechar a competência.");
@@ -124,6 +127,19 @@ export function CompetencyDetailScreen({
       </div>
 
       {erro && <p className="text-sm text-terra">{erro}</p>}
+
+      {fechamentoConcluido && (
+        <Card accent="green" className="flex items-center justify-between gap-3 p-3.5">
+          <span className="text-base text-text-secondary">
+            Competência fechada — as metas ativas continuam valendo para {formatCompetencia(proximoMes(detalhe.competencia.mesReferencia))}.
+          </span>
+          <Link href="/meu-plano">
+            <Button variant="secondary" size="sm">
+              Ver Meu plano
+            </Button>
+          </Link>
+        </Card>
+      )}
 
       <KpiStrip>
         <KpiTile label="Total consolidado" value={formatBRL(detalhe.totalConsolidado)} />

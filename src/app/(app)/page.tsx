@@ -78,14 +78,14 @@ export default async function HomePage() {
           />
         )}
         {resumo.planejado !== null && (
-          <KpiTile label="Planejado" value={formatBRL(resumo.planejado)} href="/metas" />
+          <KpiTile label="Planejado" value={formatBRL(resumo.planejado)} href="/meu-plano" />
         )}
         {resumo.restante !== null && (
           <KpiTile
             label="Restante do planejado"
             value={formatBRL(resumo.restante)}
             tone={resumo.restante < 0 ? "warning" : "success"}
-            href="/metas"
+            href="/meu-plano"
           />
         )}
         {resumo.diasRestantes !== null && (
