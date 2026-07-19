@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { ArrowRight, FileText, TriangleAlert, Lightbulb, Upload } from "lucide-react";
+import { ArrowRight, FileText, TriangleAlert, Upload } from "lucide-react";
 import { carregarResumoHome } from "@/lib/home/consulta";
-import { formatBRL, formatCompetencia, formatVariacaoPercentual } from "@/lib/format";
+import { formatBRL, formatCompetencia, formatDataHora, formatVariacaoPercentual } from "@/lib/format";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 import { CompetencyStatusBadge } from "@/components/domain/competencies/CompetencyStatusBadge";
 import { InsightNarrative } from "@/components/domain/home/InsightNarrative";
 import { HomePizza } from "@/components/domain/home/HomePizza";
+import { RecomendacaoDestaque } from "@/components/domain/home/RecomendacaoDestaque";
 
 const ATALHOS = NAV_ITEMS.filter((item) => item.implemented && item.href !== "/");
 
@@ -44,6 +45,9 @@ export default async function HomePage() {
           {formatCompetencia(resumo.competencia.mesReferencia)}
         </h1>
         <p className="max-w-3xl text-lg leading-relaxed text-text-secondary">{resumo.narrativaPrincipal}</p>
+        {resumo.ultimaAtualizacao && (
+          <p className="text-sm text-text-muted">Atualizado em {formatDataHora(resumo.ultimaAtualizacao)}</p>
+        )}
       </section>
 
       {/* Números-chave — cada um abre os lançamentos que o compõem (ADR-007/Fase 0) */}
@@ -73,7 +77,26 @@ export default async function HomePage() {
             href="/dashboards?preset=atual"
           />
         )}
+        {resumo.planejado !== null && (
+          <KpiTile label="Planejado" value={formatBRL(resumo.planejado)} href="/metas" />
+        )}
+        {resumo.restante !== null && (
+          <KpiTile
+            label="Restante do planejado"
+            value={formatBRL(resumo.restante)}
+            tone={resumo.restante < 0 ? "warning" : "success"}
+            href="/metas"
+          />
+        )}
+        {resumo.diasRestantes !== null && (
+          <KpiTile label="Dias restantes no mês" value={String(resumo.diasRestantes)} />
+        )}
+        {resumo.totalPendencias > 0 && (
+          <KpiTile label="Pendências" value={String(resumo.totalPendencias)} tone="warning" href="/caixa-de-entrada" />
+        )}
       </KpiStrip>
+
+      {resumo.recomendacaoDestaque && <RecomendacaoDestaque recomendacao={resumo.recomendacaoDestaque} />}
 
       {/* Atalhos rápidos para os módulos */}
       <section className="flex flex-col gap-2">
@@ -160,23 +183,6 @@ export default async function HomePage() {
                   <li key={i} className="flex items-start gap-2">
                     <TriangleAlert size={15} className="mt-0.5 shrink-0 text-state-warning" strokeWidth={1.75} />
                     <span className="text-base text-text-secondary">{a.texto}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
-          {resumo.recomendacoes.length > 0 && (
-            <Card>
-              <CardHeader title="Recomendações" count={resumo.recomendacoes.length} />
-              <ul className="flex flex-col gap-3">
-                {resumo.recomendacoes.map((r) => (
-                  <li key={r.id} className="flex items-start gap-2">
-                    <Lightbulb size={15} className="mt-0.5 shrink-0 text-state-neutral" strokeWidth={1.75} />
-                    <div className="flex flex-col gap-1">
-                      <span className="text-base text-text-secondary">{r.texto}</span>
-                      <span className="text-xs text-text-muted">{r.tipo}</span>
-                    </div>
                   </li>
                 ))}
               </ul>

@@ -37,6 +37,14 @@ export function formatData(data: DataISO): string {
   return `${dia}/${mes}/${ano}`;
 }
 
+/** Timestamp ISO => "14/06/2026 às 09:30" (fuso do navegador/servidor). */
+export function formatDataHora(dataHoraIso: string): string {
+  const d = new Date(dataHoraIso);
+  const data = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  const hora = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${data} às ${hora}`;
+}
+
 /**
  * Formata variação percentual com sinal explícito. 0.18 => "+18%".
  * Usa uma casa decimal só quando o valor não é inteiro.

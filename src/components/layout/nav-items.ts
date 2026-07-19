@@ -21,20 +21,29 @@ export interface NavItem {
   icon: LucideIcon;
   /** Tem conteúdo real nesta fase, ou é placeholder "em construção"? */
   implemented: boolean;
+  /**
+   * Rearquitetura (Fase 1, ADR-007): primário = uso do dia a dia (Hoje,
+   * Revisar, Explorar, Consultor); secundário = configuração/consulta pontual.
+   * "Metas" fica em secundário por ora (deviação pontual do direcional, que
+   * previa mover pra dentro de "Meu plano" — rota que só existe a partir da
+   * Fase 2; manter Metas sem nenhum link até lá violaria a própria regra do
+   * direcional de nunca deixar item primário/real órfão de navegação).
+   */
+  grupo: "primario" | "secundario";
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Home", icon: Home, implemented: true },
-  { href: "/caixa-de-entrada", label: "Caixa de Entrada", icon: Inbox, implemented: true },
-  { href: "/competencias", label: "Competências", icon: CalendarClock, implemented: true },
-  { href: "/acervo", label: "Acervo", icon: Archive, implemented: false },
-  { href: "/fornecedores", label: "Fornecedores", icon: Store, implemented: false },
-  { href: "/taxonomia", label: "Taxonomia", icon: Tags, implemented: true },
-  { href: "/regras", label: "Motor de Regras", icon: Workflow, implemented: true },
-  { href: "/historico", label: "Histórico", icon: History, implemented: true },
-  { href: "/relatorios", label: "Relatórios", icon: FileText, implemented: true },
-  { href: "/dashboards", label: "Dashboards", icon: LayoutDashboard, implemented: true },
-  { href: "/metas", label: "Metas", icon: Target, implemented: true },
-  { href: "/consultor", label: "Consultor", icon: MessageCircle, implemented: true },
-  { href: "/configuracoes", label: "Configurações", icon: Settings, implemented: true },
+  { href: "/", label: "Hoje", icon: Home, implemented: true, grupo: "primario" },
+  { href: "/caixa-de-entrada", label: "Revisar", icon: Inbox, implemented: true, grupo: "primario" },
+  { href: "/dashboards", label: "Explorar", icon: LayoutDashboard, implemented: true, grupo: "primario" },
+  { href: "/consultor", label: "Consultor", icon: MessageCircle, implemented: true, grupo: "primario" },
+  { href: "/competencias", label: "Competências", icon: CalendarClock, implemented: true, grupo: "secundario" },
+  { href: "/taxonomia", label: "Categorias", icon: Tags, implemented: true, grupo: "secundario" },
+  { href: "/regras", label: "Regras automáticas", icon: Workflow, implemented: true, grupo: "secundario" },
+  { href: "/fornecedores", label: "Fornecedores", icon: Store, implemented: false, grupo: "secundario" },
+  { href: "/acervo", label: "Acervo", icon: Archive, implemented: false, grupo: "secundario" },
+  { href: "/historico", label: "Histórico", icon: History, implemented: true, grupo: "secundario" },
+  { href: "/relatorios", label: "Relatórios", icon: FileText, implemented: true, grupo: "secundario" },
+  { href: "/metas", label: "Metas", icon: Target, implemented: true, grupo: "secundario" },
+  { href: "/configuracoes", label: "Configurações", icon: Settings, implemented: true, grupo: "secundario" },
 ];

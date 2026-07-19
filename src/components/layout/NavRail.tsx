@@ -5,8 +5,28 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { NAV_ITEMS } from "./nav-items";
 
+function NavLink({ item, active }: { item: (typeof NAV_ITEMS)[number]; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      title={item.label}
+      className={cn(
+        "flex h-[34px] w-[34px] items-center justify-center rounded-icon transition-colors duration-150",
+        active ? "bg-indigo-tint text-action-primary" : "text-text-muted hover:bg-surface-secondary hover:text-text-primary",
+      )}
+    >
+      <Icon size={18} strokeWidth={1.75} />
+      <span className="sr-only">{item.label}</span>
+    </Link>
+  );
+}
+
 export function NavRail() {
   const pathname = usePathname();
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const primarios = NAV_ITEMS.filter((item) => item.grupo === "primario");
+  const secundarios = NAV_ITEMS.filter((item) => item.grupo === "secundario");
 
   return (
     <nav
@@ -17,26 +37,13 @@ export function NavRail() {
         aria-hidden
         className="mb-2 h-[30px] w-[30px] rounded-icon bg-action-primary shadow-[0_2px_8px_rgb(74_108_247_/_0.25)]"
       />
-      {NAV_ITEMS.map((item) => {
-        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            title={item.label}
-            className={cn(
-              "flex h-[34px] w-[34px] items-center justify-center rounded-icon transition-colors duration-150",
-              active
-                ? "bg-indigo-tint text-action-primary"
-                : "text-text-muted hover:bg-surface-secondary hover:text-text-primary",
-            )}
-          >
-            <Icon size={18} strokeWidth={1.75} />
-            <span className="sr-only">{item.label}</span>
-          </Link>
-        );
-      })}
+      {primarios.map((item) => (
+        <NavLink key={item.href} item={item} active={isActive(item.href)} />
+      ))}
+      <div aria-hidden className="my-1.5 h-px w-[24px] bg-border-subtle" />
+      {secundarios.map((item) => (
+        <NavLink key={item.href} item={item} active={isActive(item.href)} />
+      ))}
     </nav>
   );
 }

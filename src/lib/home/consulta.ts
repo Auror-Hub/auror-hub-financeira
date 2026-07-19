@@ -8,7 +8,9 @@ import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { carregarLancamentosComCategoria } from "@/lib/lancamentos/porCategoria";
 import { carregarMetas } from "@/lib/metas/consulta";
 import { gerarAlerta } from "@/lib/metas/avaliacao";
-import type { AnoMes, Centavos, Competencia, Insight, Recomendacao } from "@/lib/domain/types";
+import { diasRestantesNoMes } from "@/lib/data/competencia";
+import { limiteInicioDoDia } from "@/lib/data/limites";
+import type { AnoMes, Centavos, Competencia, DataHoraISO, Insight, Recomendacao } from "@/lib/domain/types";
 
 const LIMIAR_VARIACAO_CATEGORIA = 0.1;
 const MULTIPLICADOR_DESPESA_EXTRAORDINARIA = 2;
@@ -44,15 +46,26 @@ export interface ResumoHome {
   itensAguardandoRevisao: number;
   /** Fração vs. média das até 3 competências fechadas anteriores. null = sem histórico suficiente pra comparar. */
   variacaoVsMedia: number | null;
+  /** Soma dos limites das metas ativas do mês. null = nenhuma meta ativa (nada planejado ainda). */
+  planejado: Centavos | null;
+  /** planejado - totalAnalisado. null quando `planejado` é null. */
+  restante: Centavos | null;
+  /** Dias até o fim do mês civil da competência atual. null quando a competência atual não é o mês corrente real. */
+  diasRestantes: number | null;
+  /** criado_em mais recente entre os lançamentos da competência atual — indicador de frescor do dado. null sem lançamentos. */
+  ultimaAtualizacao: DataHoraISO | null;
   narrativaPrincipal: string;
   /** Presente só quando insights/recomendações vêm de uma competência diferente da atual (atual ainda aberta). */
   mesReferenciaAnalise?: AnoMes;
   principaisMudancas: Insight[];
+  recomendacaoDestaque: Recomendacao | null;
   despesasExtraordinarias: DespesaExtraordinaria[];
   categoriasPressionadas: CategoriaPressionadaHome[];
   /** Gasto por categoria da competência atual (para a pizza simplificada da Home), maior primeiro. */
   distribuicaoCategorias: { rotulo: string; total: number }[];
   alertas: AlertaHome[];
+  /** Agregador de pendências (Fase 1, ADR-007): total de sinais que pedem ação hoje — mesma contagem de `alertas`. */
+  totalPendencias: number;
   recomendacoes: Recomendacao[];
   ultimoRelatorio?: RelatorioResumoHome;
 }
@@ -87,6 +100,30 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     const { insights, recomendacoes: recs } = await carregarInsightsDaCompetencia(referenciaAnalise.competencia.id);
     principaisMudancas = insights;
     recomendacoes = recs;
+  }
+
+  // Rearquitetura (Fase 1, ADR-007): recomendação única destacada — a primeira
+  // ainda não decidida ("aceitou"/"não sugerir de novo" suprimem pra sempre;
+  // "agora não" suprime só até o fim do dia calendário, mesmo padrão de
+  // "revisar depois" da Caixa de Entrada).
+  let recomendacaoDestaque: Recomendacao | null = null;
+  if (recomendacoes.length > 0) {
+    const inicioHoje = limiteInicioDoDia(new Date());
+    const { data: decisoesRaw } = await supabase
+      .from("recomendacoes_decisoes")
+      .select("recomendacao_id, decisao, criado_em")
+      .in("recomendacao_id", recomendacoes.map((r) => r.id));
+    const suprimidas = new Set<string>();
+    for (const d of decisoesRaw ?? []) {
+      const decisao = d.decisao as string;
+      const recomendacaoId = d.recomendacao_id as string;
+      if (decisao === "aceitou" || decisao === "não sugerir de novo") {
+        suprimidas.add(recomendacaoId);
+      } else if (decisao === "agora não" && new Date(d.criado_em as string) >= inicioHoje) {
+        suprimidas.add(recomendacaoId);
+      }
+    }
+    recomendacaoDestaque = recomendacoes.find((r) => !suprimidas.has(r.id)) ?? null;
   }
 
   const insightVariacaoTotal = principaisMudancas.find((i) => i.tipo === "variacao_total");
@@ -177,14 +214,30 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
   }
 
   const metas = await carregarMetas();
-  for (const meta of metas) {
-    if (meta.status !== "ativa") continue;
+  const metasAtivas = metas.filter((m) => m.status === "ativa");
+  for (const meta of metasAtivas) {
     const alerta = gerarAlerta(meta.categoriaRotulo, meta.valorLimite, meta.gastoAtual, {
       percentual: meta.percentual,
       status: meta.statusProgresso,
     });
     if (alerta) alertas.push(alerta);
   }
+
+  const planejado = metasAtivas.length > 0 ? metasAtivas.reduce((soma, m) => soma + m.valorLimite, 0) : null;
+  // totalConsolidado é a soma bruta de `valor` (despesas em centavos negativos) —
+  // somar (não subtrair) equivale a descontar o gasto absoluto do planejado.
+  const restante = planejado !== null ? planejado + atual.totalConsolidado : null;
+  const diasRestantes = diasRestantesNoMes(atual.competencia.mesReferencia, new Date());
+
+  const { data: ultimoLancamento } = await supabase
+    .from("lancamentos_brutos")
+    .select("criado_em")
+    .in("cartao_id", cartaoIds.length ? cartaoIds : ["00000000-0000-0000-0000-000000000000"])
+    .eq("competencia_calculada", atual.competencia.mesReferencia)
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const ultimaAtualizacao = (ultimoLancamento?.criado_em as string | undefined) ?? null;
 
   const relatorios = await carregarRelatorios();
   const ultimoRelatorio: RelatorioResumoHome | undefined = relatorios[0]
@@ -197,14 +250,20 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     quantidadeLancamentos: atual.totalLancamentos,
     itensAguardandoRevisao: atual.lancamentosPendentes,
     variacaoVsMedia,
+    planejado,
+    restante,
+    diasRestantes,
+    ultimaAtualizacao,
     narrativaPrincipal,
     mesReferenciaAnalise:
       referenciaAnalise && referenciaAnalise.competencia.id !== atual.competencia.id ? referenciaAnalise.competencia.mesReferencia : undefined,
     principaisMudancas,
+    recomendacaoDestaque,
     despesasExtraordinarias,
     categoriasPressionadas,
     distribuicaoCategorias,
     alertas,
+    totalPendencias: alertas.length,
     recomendacoes,
     ultimoRelatorio,
   };
