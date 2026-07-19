@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { carregarPainelControle } from "@/lib/dashboards/consulta";
+import { carregarPainelControle, type FiltroPeriodoPainel } from "@/lib/dashboards/consulta";
+import { mesesAnteriores } from "@/lib/data/competencia";
 import { DashboardScreen, type PresetPeriodo } from "@/components/domain/dashboards/DashboardScreen";
 
 interface SearchParams {
@@ -19,26 +20,27 @@ function mesAtualIso(): string {
   return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function resolverIntervalo(preset: PresetPeriodo, params: SearchParams): { dataInicio: string; dataFim: string } {
-  const hoje = new Date();
-  const fim = iso(hoje);
+/**
+ * Ajuste (2026-07-19): período do Painel de Controle passa a significar
+ * "quais competências", não "quais datas de calendário" — uma parcela
+ * comprada em maio mas com competência de julho precisa aparecer quando o
+ * filtro é "julho" (mesma leitura das telas de Competência/Histórico). Só o
+ * preset "Personalizado" continua sendo um intervalo de datas real,
+ * explicitamente escolhido pela Victoria.
+ */
+function resolverPeriodo(preset: PresetPeriodo, params: SearchParams): FiltroPeriodoPainel {
   if (preset === "custom" && params.dataInicio && params.dataFim) {
-    return { dataInicio: params.dataInicio, dataFim: params.dataFim };
+    return { tipo: "datas", dataInicio: params.dataInicio, dataFim: params.dataFim };
   }
+  const mesAtual = mesAtualIso();
   if (preset === "mes") {
-    const [ano, mesNum] = (params.mes || mesAtualIso()).split("-").map(Number);
-    const inicio = new Date(ano, mesNum - 1, 1);
-    const fimMes = new Date(ano, mesNum, 0); // dia 0 do mês seguinte = último dia do mês atual
-    return { dataInicio: iso(inicio), dataFim: iso(fimMes) };
+    return { tipo: "competencias", meses: [params.mes || mesAtual] };
   }
   if (preset === "atual") {
-    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    return { dataInicio: iso(inicio), dataFim: fim };
+    return { tipo: "competencias", meses: [mesAtual] };
   }
-  const dias = preset === "12m" ? 365 : preset === "6m" ? 180 : 90;
-  const inicio = new Date(hoje);
-  inicio.setDate(inicio.getDate() - dias);
-  return { dataInicio: iso(inicio), dataFim: fim };
+  const quantidadeMeses = preset === "12m" ? 12 : preset === "6m" ? 6 : 3;
+  return { tipo: "competencias", meses: [mesAtual, ...mesesAnteriores(mesAtual, quantidadeMeses - 1)] };
 }
 
 const PRESETS_VALIDOS: PresetPeriodo[] = ["atual", "3m", "6m", "12m", "mes", "custom"];
@@ -53,11 +55,14 @@ export default async function DashboardsPage({ searchParams }: { searchParams: P
     .map((t) => ({ id: t.id as string, rotulo: t.rotulo as string }));
 
   const preset: PresetPeriodo = PRESETS_VALIDOS.includes(params.preset as PresetPeriodo) ? (params.preset as PresetPeriodo) : "3m";
-  const { dataInicio, dataFim } = resolverIntervalo(preset, params);
+  const periodo = resolverPeriodo(preset, params);
   const objetivoId = params.objetivoId || undefined;
   const mes = params.mes || mesAtualIso();
+  // Seeds pros date-pickers do preset "Personalizado" (só usados quando ele é ativado na UI).
+  const dataInicio = params.dataInicio || iso(new Date(new Date().setDate(new Date().getDate() - 90)));
+  const dataFim = params.dataFim || iso(new Date());
 
-  const painel = await carregarPainelControle({ dataInicio, dataFim, objetivoId });
+  const painel = await carregarPainelControle({ periodo, objetivoId });
 
   return (
     <DashboardScreen

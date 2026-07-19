@@ -1,7 +1,9 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
-import { formatData } from "@/lib/format";
+import { resolverPeriodoEAnterior, type FiltroPeriodoPainel } from "./periodo";
+
+export type { FiltroPeriodoPainel };
 
 export interface FiltrosDashboard {
   dataInicio: string;
@@ -134,8 +136,7 @@ const MAX_FORNECEDORES_POR_CATEGORIA = 5;
 const SEM_SUBCATEGORIA = "(sem subcategoria)";
 
 export interface FiltrosPainel {
-  dataInicio: string;
-  dataFim: string;
+  periodo: FiltroPeriodoPainel;
   objetivoId?: string;
 }
 
@@ -169,7 +170,7 @@ export interface DespesaExtraordinariaDash {
   vezesMedia: number;
 }
 export interface PainelControle {
-  periodo: { inicio: string; fim: string; rotulo: string };
+  periodo: { rotulo: string };
   total: number;
   totalLancamentos: number;
   ticketMedio: number;
@@ -210,23 +211,22 @@ const PAINEL_VAZIO: Omit<PainelControle, "periodo"> = {
 
 type SupabaseServer = Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"];
 
-/** Agrega os lançamentos decididos de um intervalo (fato vivo + decisão vigente), opcionalmente filtrado por objetivo. */
+/** Agrega os lançamentos decididos de um período (fato vivo + decisão vigente), opcionalmente filtrado por objetivo. */
 async function agregarPeriodo(
   supabase: SupabaseServer,
   cartaoIds: string[],
-  dataInicio: string,
-  dataFim: string,
+  periodo: FiltroPeriodoPainel,
   objetivoId: string | undefined,
   inativos: Set<string>,
 ): Promise<AgregadoPeriodo> {
   const vazio: AgregadoPeriodo = { total: 0, itens: [], porCategoria: new Map() };
 
-  const { data: lancamentosRaw, error: errL } = await supabase
-    .from("lancamentos_brutos")
-    .select("id, valor, competencia_calculada, fornecedor_original")
-    .in("cartao_id", cartaoIds)
-    .gte("data", dataInicio)
-    .lte("data", dataFim);
+  let query = supabase.from("lancamentos_brutos").select("id, valor, competencia_calculada, fornecedor_original").in("cartao_id", cartaoIds);
+  query =
+    periodo.tipo === "competencias"
+      ? query.in("competencia_calculada", periodo.meses.length > 0 ? periodo.meses : ["0000-00"])
+      : query.gte("data", periodo.dataInicio).lte("data", periodo.dataFim);
+  const { data: lancamentosRaw, error: errL } = await query;
   if (errL) throw new Error("Falha ao carregar lançamentos: " + errL.message);
   const lancamentos = (lancamentosRaw ?? []).filter((l) => !inativos.has(l.id as string));
   if (lancamentos.length === 0) return vazio;
@@ -271,44 +271,27 @@ async function agregarPeriodo(
   return { total, itens, porCategoria };
 }
 
-function isoDeData(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
 export async function carregarPainelControle(filtros: FiltrosPainel): Promise<PainelControle> {
   const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
 
-  const rotuloPeriodo = `${formatData(filtros.dataInicio)} – ${formatData(filtros.dataFim)}`;
-  const periodo = { inicio: filtros.dataInicio, fim: filtros.dataFim, rotulo: rotuloPeriodo };
+  const { atual: periodoAtual, anterior: periodoAnterior, rotulo: rotuloPeriodo, rotuloAnterior } = resolverPeriodoEAnterior(filtros.periodo);
+  const periodo = { rotulo: rotuloPeriodo };
 
   const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id").eq("perfil_id", perfilId);
   const cartaoIds = (cartoesDoPerfil ?? []).map((c) => c.id as string);
   if (cartaoIds.length === 0) return { periodo, ...PAINEL_VAZIO };
 
-  // Período anterior de mesma duração, imediatamente antes.
-  const msDia = 86400000;
-  const inicioDate = new Date(filtros.dataInicio + "T00:00:00Z");
-  const fimDate = new Date(filtros.dataFim + "T00:00:00Z");
-  const duracaoDias = Math.max(1, Math.round((fimDate.getTime() - inicioDate.getTime()) / msDia) + 1);
-  const anteriorFimDate = new Date(inicioDate.getTime() - msDia);
-  const anteriorInicioDate = new Date(anteriorFimDate.getTime() - (duracaoDias - 1) * msDia);
-  const anteriorInicio = isoDeData(anteriorInicioDate);
-  const anteriorFim = isoDeData(anteriorFimDate);
-
   const inativos = await carregarIdsInativos(supabase, perfilId);
   const [atual, anterior] = await Promise.all([
-    agregarPeriodo(supabase, cartaoIds, filtros.dataInicio, filtros.dataFim, filtros.objetivoId, inativos),
-    agregarPeriodo(supabase, cartaoIds, anteriorInicio, anteriorFim, filtros.objetivoId, inativos),
+    agregarPeriodo(supabase, cartaoIds, periodoAtual, filtros.objetivoId, inativos),
+    agregarPeriodo(supabase, cartaoIds, periodoAnterior, filtros.objetivoId, inativos),
   ]);
 
   if (atual.itens.length === 0) {
     return {
       periodo,
       ...PAINEL_VAZIO,
-      comparacao:
-        anterior.total > 0
-          ? { totalAnterior: anterior.total, variacao: -1, rotuloAnterior: `${formatData(anteriorInicio)} – ${formatData(anteriorFim)}` }
-          : null,
+      comparacao: anterior.total > 0 ? { totalAnterior: anterior.total, variacao: -1, rotuloAnterior } : null,
     };
   }
 
@@ -423,7 +406,7 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
       ? {
           totalAnterior: anterior.total,
           variacao: (total - anterior.total) / anterior.total,
-          rotuloAnterior: `${formatData(anteriorInicio)} – ${formatData(anteriorFim)}`,
+          rotuloAnterior,
         }
       : null;
 
