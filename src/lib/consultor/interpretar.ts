@@ -107,14 +107,18 @@ const FERRAMENTA_INTERPRETACAO = {
  * (Fase 4, ADR-007) só produzem um RASCUNHO — a ação real depende de
  * confirmação humana explícita no chat, nunca acontece aqui.
  */
-export async function interpretarPergunta(pergunta: string, categoriasDisponiveis: string[]): Promise<IntencaoEstruturada> {
+export async function interpretarPergunta(
+  pergunta: string,
+  categoriasDisponiveis: string[],
+  nomeFamilia: string,
+): Promise<IntencaoEstruturada> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada — necessária para interpretar a pergunta.");
 
   const client = new Anthropic({ apiKey });
 
   const hoje = new Date().toISOString().slice(0, 10);
-  const prompt = `Você interpreta mensagens financeiras da Família Gama feitas ao Consultor da AURÓR · Hub Financeira.
+  const prompt = `Você interpreta mensagens financeiras da família ${nomeFamilia} feitas ao Consultor da AURÓR · Hub Financeira.
 
 Data de hoje: ${hoje}.
 
@@ -136,7 +140,7 @@ Mutação (SEMPRE produzem um rascunho pra confirmação — nunca executam nada
 9. criar_rascunho_correcao_classificacao — pedido pra corrigir a categoria de um lançamento específico (ex.: "o gasto no Posto Ipiranga de ontem é Transporte, não Alimentação").
 
 Regras obrigatórias:
-- Se a pergunta pedir quebra de gasto por pessoa, membro da família ou "objetivo" (ex.: "quanto o Paulo gastou", "gasto da Malu", "por pessoa") → SEMPRE intencao="fora_de_escopo", motivoForaDeEscopo curto explicando que o Consultor não decompõe gasto por pessoa em consulta livre.
+- Se a pergunta pedir quebra de gasto por pessoa, membro da família ou "objetivo" (ex.: "quanto uma pessoa específica gastou", "gasto de um membro específico", "por pessoa") → SEMPRE intencao="fora_de_escopo", motivoForaDeEscopo curto explicando que o Consultor não decompõe gasto por pessoa em consulta livre.
 - Se a pergunta não tiver dado temporal suficiente para resolver datas (ex.: "esse mês" sem mês claro) assuma o mês corrente a partir da data de hoje.
 - Nunca invente uma categoria fora da lista — se a categoria mencionada não estiver na lista, use fora_de_escopo.
 - Pra criar_lancamento_provisorio, se não houver data explícita, assuma hoje.

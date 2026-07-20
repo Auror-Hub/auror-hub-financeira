@@ -64,8 +64,10 @@ export async function enviarPergunta(conversaId: string | null, texto: string): 
 
   const { data: categoriasRaw } = await supabase.from("taxonomia_termos").select("rotulo").eq("dimensao", "categoria").eq("status", "ativo");
   const categorias = (categoriasRaw ?? []).map((c) => c.rotulo as string);
+  const { data: familiaRow } = await supabase.from("familias").select("nome").eq("id", perfilId).single();
+  const nomeFamilia = (familiaRow?.nome as string | undefined) ?? "a família";
 
-  const intencao = await interpretarPergunta(texto, categorias);
+  const intencao = await interpretarPergunta(texto, categorias, nomeFamilia);
 
   await supabase.from("consultas_analiticas").insert({
     mensagem_id: mensagemUsuarioRaw.id,
@@ -79,7 +81,7 @@ export async function enviarPergunta(conversaId: string | null, texto: string): 
         const rascunho = await prepararRascunho(intencao);
         return rascunho ? respostaDeRascunho(rascunho) : respostaSemRascunho(intencao.intencao);
       })()
-    : await responderComDados(texto, intencao, await recuperarDados(intencao));
+    : await responderComDados(texto, intencao, await recuperarDados(intencao), nomeFamilia);
 
   const { data: mensagemConsultorRaw, error: errMsgConsultor } = await supabase
     .from("mensagens")

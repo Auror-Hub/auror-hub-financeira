@@ -159,6 +159,7 @@ export async function responderComDados(
   pergunta: string,
   intencao: IntencaoEstruturada,
   dados: DadosRecuperados | null,
+  nomeFamilia: string,
 ): Promise<RespostaConsultor> {
   if (!dados) return respostaDeLimitacao(intencao.motivoForaDeEscopo);
 
@@ -175,11 +176,11 @@ export async function responderComDados(
 
   const client = new Anthropic({ apiKey });
 
-  const prompt = `Você é o Consultor da AURÓR · Hub Financeira, respondendo a uma pergunta da Família Gama sobre as finanças conjuntas da família.
+  const prompt = `Você é o Consultor da AURÓR · Hub Financeira, respondendo a uma pergunta da família ${nomeFamilia} sobre as finanças conjuntas da família.
 
 REGRAS INEGOCIÁVEIS:
 - Nunca invente valores, fornecedores, categorias ou eventos que não estejam explicitamente nos dados abaixo. Você só pode interpretar o que foi fornecido.
-- Nunca mencione nomes de pessoas específicas (Victoria, Paulo, Malu) ou tente decompor o gasto por pessoa — essa informação não foi fornecida a você de propósito.
+- Nunca mencione nomes de membros específicos da família ou tente decompor o gasto por pessoa — essa informação não foi fornecida a você de propósito.
 - Se os dados abaixo não tiverem conteúdo suficiente para uma seção, escreva um texto curto reconhecendo a limitação em vez de inventar.
 - Se uma lista (insights, recomendações, despesas) vier vazia, apenas declare que está vazia. NUNCA infira ou invente um motivo para a ausência (ex.: não assuma "é a primeira competência", "não há dados suficientes ainda" ou qualquer outra causa) — isso não foi informado a você e seria uma invenção, mesmo que pareça uma explicação plausível.
 - "Evidências" só pode conter fatos que estão literalmente nos dados abaixo — nunca uma inferência ou suposição, mesmo razoável.

@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Search } from "lucide-react";
 import { useSession } from "@/lib/session/SessionContext";
 import { NAV_ITEMS } from "./nav-items";
 
@@ -18,19 +17,6 @@ export function TopBar() {
         {current?.label ?? "AURÓR · Hub Financeira"}
       </span>
       <div className="flex items-center gap-3">
-        <div className="relative hidden max-w-[260px] flex-1 sm:block">
-          <Search
-            size={14}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-placeholder"
-          />
-          <input
-            type="search"
-            disabled
-            placeholder="Buscar (Etapa 2)"
-            title="Busca global chega junto com os dados reais, na Etapa 2"
-            className="h-[30px] w-full rounded-input border border-border-subtle bg-surface-secondary pl-8 pr-3 text-sm text-text-muted placeholder:text-text-placeholder outline-none"
-          />
-        </div>
         <span className="eyebrow">{session.profileName}</span>
         <div
           aria-hidden

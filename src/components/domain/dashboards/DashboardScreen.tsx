@@ -94,7 +94,8 @@ export function DashboardScreen({ painel, objetivos, filtrosAtuais, competenciaU
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-2">
         <LayoutDashboard size={20} className="text-text-muted" strokeWidth={1.75} />
-        <h1 className="text-xl font-semibold text-text-primary">Painel de Controle</h1>
+        <h1 className="text-xl font-semibold text-text-primary">Explorar</h1>
+        <span className="text-sm text-text-muted">· Painel de Controle</span>
       </div>
       <p className="text-sm text-text-muted">
         Do macro ao micro: onde o dinheiro vai, o que fugiu do padrão e onde uma redução pesa mais. Dado vivo do período —

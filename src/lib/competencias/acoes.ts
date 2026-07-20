@@ -138,7 +138,9 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
   // Agente Narrador (Fase 7) — mesma disciplina best-effort do Analista.
   try {
     const { insights, recomendacoes } = await carregarInsightsDaCompetencia(competenciaId);
-    await gerarRelatorio(supabase, competenciaId, competencia.mes_referencia as string, snapshot.id as string, dadosCongelados, insights, recomendacoes);
+    const { data: familiaRow } = await supabase.from("familias").select("nome").eq("id", perfilId).single();
+    const nomeFamilia = (familiaRow?.nome as string | undefined) ?? "a família";
+    await gerarRelatorio(supabase, competenciaId, competencia.mes_referencia as string, snapshot.id as string, dadosCongelados, insights, recomendacoes, nomeFamilia);
   } catch (e) {
     console.error("Falha ao gerar relatório (Fase 7):", e);
   }

@@ -278,7 +278,7 @@ export function InboxScreen({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Inbox size={20} className="text-text-muted" strokeWidth={1.75} />
-          <h1 className="text-xl font-semibold text-text-primary">Caixa de Entrada</h1>
+          <h1 className="text-xl font-semibold text-text-primary">Revisar</h1>
           <span className="font-mono-nums text-sm text-text-muted">
             {pendentes.length} pendente{pendentes.length === 1 ? "" : "s"}
           </span>

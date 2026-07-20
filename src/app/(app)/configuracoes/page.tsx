@@ -1,6 +1,5 @@
 import { Settings } from "lucide-react";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
-import { PlaceholderScreen } from "@/components/common/PlaceholderScreen";
 import { SignOutButton } from "@/components/domain/auth/SignOutButton";
 import { AdicionarCartaoForm } from "@/components/domain/cartoes/AdicionarCartaoForm";
 import { FamiliaSection } from "@/components/domain/familia/FamiliaSection";
@@ -17,11 +16,10 @@ export default async function ConfiguracoesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PlaceholderScreen
-        title="Configurações"
-        icon={Settings}
-        note="Preferências gerais ainda não foram implementadas. Cartões e contas (BE-2) já são reais."
-      />
+      <div className="flex items-center gap-2">
+        <Settings size={20} className="text-text-muted" strokeWidth={1.75} />
+        <h1 className="text-xl font-semibold text-text-primary">Configurações</h1>
+      </div>
 
       <Card>
         <CardHeader title="Cartões e contas" count={cartoes?.length ?? 0} />

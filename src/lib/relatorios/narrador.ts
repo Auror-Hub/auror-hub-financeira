@@ -22,6 +22,7 @@ function montarPrompt(
   categoriaRotulos: Map<string, string>,
   insights: Insight[],
   recomendacoes: Recomendacao[],
+  nomeFamilia: string,
 ): string {
   const quebraPorCategoriaTexto = Object.entries(dadosCongelados.quebraPorCategoria)
     .map(([id, valor]) => `- ${categoriaRotulos.get(id) ?? "categoria desconhecida"}: ${formatBRL(valor)}`)
@@ -41,12 +42,12 @@ function montarPrompt(
     ? recomendacoes.map((r) => `- [${r.tipo}] ${r.texto}`).join("\n")
     : "Nenhuma recomendação gerada nesta competência.";
 
-  return `Você é o Agente Narrador da AURÓR · Hub Financeira — transforma análises financeiras já calculadas em um relatório executivo HTML para a Família Gama (Victoria, Paulo, Malu), sobre as finanças conjuntas da família.
+  return `Você é o Agente Narrador da AURÓR · Hub Financeira — transforma análises financeiras já calculadas em um relatório executivo HTML para a família ${nomeFamilia}, sobre as finanças conjuntas da família.
 
 REGRAS INEGOCIÁVEIS:
 - Nunca invente valores, fornecedores, categorias ou eventos que não estejam explicitamente nos dados abaixo. Você só pode interpretar o que foi fornecido.
 - Para qualquer seção sem dado suficiente para uma afirmação específica, escreva um texto curto reconhecendo a limitação (ex.: "ainda não há dados suficientes para X") em vez de inventar conteúdo.
-- Nunca mencione nomes de pessoas específicas (Victoria, Paulo, Malu) ou a distribuição de gastos por pessoa — essa informação não foi fornecida a você de propósito e não deve ser citada nem estimada.
+- Nunca mencione nomes de membros específicos da família ou a distribuição de gastos por pessoa — essa informação não foi fornecida a você de propósito e não deve ser citada nem estimada.
 - Gráficos são opcionais e nunca substituem a interpretação em texto.
 - Responda APENAS com o HTML do conteúdo (elementos como <h2>, <p>, <ul>, <table> etc.) — sem <html>, <head>, <body> ou <script>.
 
@@ -116,6 +117,7 @@ export async function gerarRelatorio(
   dadosCongelados: DadosCongelados,
   insights: Insight[],
   recomendacoes: Recomendacao[],
+  nomeFamilia: string,
 ): Promise<void> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada — necessária para gerar o relatório executivo.");
@@ -129,7 +131,7 @@ export async function gerarRelatorio(
   const rotulosPorId = new Map((termosRaw ?? []).map((t) => [t.id as string, t.rotulo as string]));
 
   const client = new Anthropic({ apiKey });
-  const prompt = montarPrompt(mesReferencia, dadosCongelados, rotulosPorId, insights, recomendacoes);
+  const prompt = montarPrompt(mesReferencia, dadosCongelados, rotulosPorId, insights, recomendacoes, nomeFamilia);
 
   const resposta = await client.messages.create({
     model: MODELO,

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Upload, FileCheck2, CircleAlert, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { Upload, FileCheck2, CircleAlert, RotateCcw, ArrowRight } from "lucide-react";
 import {
   analisarArquivo,
   processarImportacao,
@@ -522,19 +523,26 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
             )}
           </div>
           <p className="text-sm text-text-muted">
-            Estes lançamentos já aparecem na Caixa de Entrada — use &ldquo;Gerar propostas&rdquo; lá pra receber
-            sugestões de classificação. Confirmar ou corrigir uma proposta ainda não grava decisão real (chega na
-            fase BE-4).
+            A classificação automática já foi disparada para estes lançamentos — em poucos instantes eles chegam em
+            Revisar com uma proposta de categoria pronta pra confirmar ou corrigir.
           </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<RotateCcw size={14} strokeWidth={1.75} />}
-            className="w-fit"
-            onClick={reiniciar}
-          >
-            Enviar outro documento
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/caixa-de-entrada"
+              className="flex items-center gap-1.5 rounded-btn bg-action-primary px-3 py-2 text-sm font-medium text-action-on-primary hover:bg-action-primary-hover"
+            >
+              Ir para Revisar
+              <ArrowRight size={14} strokeWidth={1.75} />
+            </Link>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<RotateCcw size={14} strokeWidth={1.75} />}
+              onClick={reiniciar}
+            >
+              Enviar outro documento
+            </Button>
+          </div>
         </Card>
       )}
     </div>
