@@ -2,6 +2,7 @@ import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import type { MensagemConsultor } from "./acoes";
 import type { ItemComLink } from "./responder";
+import type { RascunhoAcao } from "./rascunho";
 
 export interface ConversaAtual {
   conversaId: string | null;
@@ -41,7 +42,7 @@ export async function carregarConversaAtual(): Promise<ConversaAtual> {
   const idsMensagensConsultor = mensagensRows.filter((m) => m.autor === "consultor").map((m) => m.id as string);
   const { data: respostasRaw, error: errRespostas } = await supabase
     .from("respostas_consultor")
-    .select("mensagem_id, resposta_direta, evidencias, interpretacao, ressalvas, acoes_possiveis, aprofundamento")
+    .select("mensagem_id, resposta_direta, evidencias, interpretacao, ressalvas, acoes_possiveis, aprofundamento, rascunho_acao")
     .in("mensagem_id", idsMensagensConsultor.length > 0 ? idsMensagensConsultor : ["00000000-0000-0000-0000-000000000000"]);
   if (errRespostas) throw new Error("Falha ao carregar respostas do consultor: " + errRespostas.message);
   const respostaPorMensagem = new Map((respostasRaw ?? []).map((r) => [r.mensagem_id as string, r]));
@@ -63,6 +64,7 @@ export async function carregarConversaAtual(): Promise<ConversaAtual> {
             ressalvas: resposta.ressalvas as string,
             acoesPossiveis: (resposta.acoes_possiveis ?? []) as ItemComLink[],
             aprofundamento: resposta.aprofundamento as string,
+            rascunhoAcao: (resposta.rascunho_acao ?? null) as RascunhoAcao | null,
           }
         : undefined,
     };

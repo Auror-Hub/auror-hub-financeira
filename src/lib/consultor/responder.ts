@@ -1,8 +1,9 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { formatBRL, formatCompetencia, formatData } from "@/lib/format";
-import type { IntencaoEstruturada } from "./interpretar";
+import type { IntencaoConsultor, IntencaoEstruturada } from "./interpretar";
 import type { DadosRecuperados, DadosResumoInsights } from "./recuperar";
+import type { RascunhoAcao } from "./rascunho";
 
 export interface ItemComLink {
   texto: string;
@@ -16,6 +17,42 @@ export interface RespostaConsultor {
   ressalvas: string;
   acoesPossiveis: ItemComLink[];
   aprofundamento: string;
+  /** Rearquitetura (Fase 4, ADR-007): presente só nas 4 intenções de mutação — a ação real só acontece se confirmada no chat. */
+  rascunhoAcao?: RascunhoAcao | null;
+}
+
+const MOTIVO_SEM_RASCUNHO: Partial<Record<IntencaoConsultor, string>> = {
+  criar_rascunho_meta:
+    "Não consegui montar essa meta com segurança — confira se a categoria/subcategoria/objetivo mencionados existem e se o valor ou percentual informado é válido.",
+  criar_rascunho_ajuste_plano: "Não encontrei uma meta de valor fixo ativa correspondente pra ajustar — confira em Meu plano.",
+  criar_lancamento_provisorio: "Não consegui montar esse lançamento provisório — confira se descrição, valor e data foram informados.",
+  criar_rascunho_correcao_classificacao:
+    "Não encontrei um único lançamento correspondente, ou faltou informar o objetivo pra um lançamento que ainda não tem decisão — tente descrever o fornecedor e a data com mais precisão.",
+};
+
+/** Sem chamada à IA — o conteúdo do rascunho já é 100% determinístico (rascunho.ts); gerar texto livre aqui só arriscaria inventar detalhes numa mutação financeira. */
+export function respostaDeRascunho(rascunho: RascunhoAcao): RespostaConsultor {
+  return {
+    respostaDireta: `Preparei isto — nada foi alterado ainda: ${rascunho.resumo}`,
+    evidencias: [],
+    interpretacao: "",
+    ressalvas: "Nenhuma mudança é feita até você confirmar no cartão abaixo.",
+    acoesPossiveis: [],
+    aprofundamento: "",
+    rascunhoAcao: rascunho,
+  };
+}
+
+export function respostaSemRascunho(intencao: IntencaoConsultor): RespostaConsultor {
+  return {
+    respostaDireta: MOTIVO_SEM_RASCUNHO[intencao] ?? "Não consegui preparar essa ação com segurança.",
+    evidencias: [],
+    interpretacao: "",
+    ressalvas: "Nada foi alterado.",
+    acoesPossiveis: [],
+    aprofundamento: "",
+    rascunhoAcao: null,
+  };
 }
 
 const MARCADORES = ["RESPOSTA_DIRETA", "EVIDENCIAS", "INTERPRETACAO", "RESSALVAS", "ACOES_POSSIVEIS", "APROFUNDAMENTO"] as const;
