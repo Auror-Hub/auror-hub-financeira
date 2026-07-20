@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, FileText, TriangleAlert, Upload } from "lucide-react";
 import { carregarResumoHome } from "@/lib/home/consulta";
+import { classificarFrescor, rotuloFrescor } from "@/lib/data/frescor";
 import { formatBRL, formatCompetencia, formatDataHora, formatVariacaoPercentual } from "@/lib/format";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -33,6 +34,9 @@ export default async function HomePage() {
     );
   }
 
+  const hoje = new Date();
+  const frescor = classificarFrescor(resumo.competencia.estado, resumo.ultimaAtualizacao, hoje);
+
   return (
     <div className="flex flex-col gap-6">
       {/* Cabeçalho da competência + narrativa interpretativa principal */}
@@ -45,9 +49,10 @@ export default async function HomePage() {
           {formatCompetencia(resumo.competencia.mesReferencia)}
         </h1>
         <p className="max-w-3xl text-lg leading-relaxed text-text-secondary">{resumo.narrativaPrincipal}</p>
-        {resumo.ultimaAtualizacao && (
-          <p className="text-sm text-text-muted">Atualizado em {formatDataHora(resumo.ultimaAtualizacao)}</p>
-        )}
+        <p className={`text-sm ${frescor === "desatualizada" ? "text-state-warning" : "text-text-muted"}`}>
+          {rotuloFrescor(frescor, resumo.ultimaAtualizacao, hoje)}
+          {resumo.ultimaAtualizacao && ` · Atualizado em ${formatDataHora(resumo.ultimaAtualizacao)}`}
+        </p>
       </section>
 
       {/* Números-chave — cada um abre os lançamentos que o compõem (ADR-007/Fase 0) */}
@@ -75,17 +80,6 @@ export default async function HomePage() {
             tone={resumo.variacaoVsMedia > 0 ? "warning" : "success"}
             hint="Variação do total gasto"
             href="/dashboards?preset=atual"
-          />
-        )}
-        {resumo.planejado !== null && (
-          <KpiTile label="Planejado" value={formatBRL(resumo.planejado)} href="/meu-plano" />
-        )}
-        {resumo.restante !== null && (
-          <KpiTile
-            label="Restante do planejado"
-            value={formatBRL(resumo.restante)}
-            tone={resumo.restante < 0 ? "warning" : "success"}
-            href="/meu-plano"
           />
         )}
         {resumo.diasRestantes !== null && (

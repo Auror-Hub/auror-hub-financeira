@@ -1,6 +1,6 @@
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarMetas } from "@/lib/metas/consulta";
-import { carregarCompetencias } from "@/lib/competencias/consulta";
+import { carregarCompetencias, carregarUltimaAtualizacaoCompetencia } from "@/lib/competencias/consulta";
 import { diasDecorridosNoMes } from "@/lib/data/competencia";
 import { calcularProjecao } from "@/lib/metas/projecao";
 import { MeuPlanoScreen } from "@/components/domain/metas/MeuPlanoScreen";
@@ -25,19 +25,18 @@ export default async function MeuPlanoPage() {
   const [metas, competencias] = await Promise.all([carregarMetas(), carregarCompetencias()]);
   const atual = competencias[0];
 
-  const metasAtivas = metas.filter((m) => m.status === "ativa");
-  const planejadoTotal = metasAtivas.length > 0 ? metasAtivas.reduce((soma, m) => soma + m.valorLimiteEfetivo, 0) : null;
-
   const gastoAtualAbs = atual ? Math.abs(atual.totalConsolidado) : 0;
   const dias = atual ? diasDecorridosNoMes(atual.competencia.mesReferencia, new Date()) : null;
   const projecao = dias ? calcularProjecao(gastoAtualAbs, dias.decorridos, dias.total) : null;
+  const ultimaAtualizacao = atual ? await carregarUltimaAtualizacaoCompetencia(atual.competencia.mesReferencia) : null;
 
   return (
     <MeuPlanoScreen
       metas={metas}
       mesReferencia={atual?.competencia.mesReferencia ?? ""}
+      estadoCompetencia={atual?.competencia.estado ?? null}
+      ultimaAtualizacao={ultimaAtualizacao}
       gastoAtualAbs={gastoAtualAbs}
-      planejadoTotal={planejadoTotal}
       projecao={projecao}
       categorias={categorias}
       subcategoriasPorCategoria={subcategoriasPorCategoria}

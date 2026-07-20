@@ -1,5 +1,7 @@
 import { CalendarRange } from "lucide-react";
 import { formatBRL, formatCompetencia } from "@/lib/format";
+import { classificarFrescor, rotuloFrescor } from "@/lib/data/frescor";
+import type { EstadoCompetencia } from "@/lib/domain/types";
 import type { Projecao } from "@/lib/metas/projecao";
 import type { MetaComProgresso } from "@/lib/metas/consulta";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -9,44 +11,51 @@ import { MetaListScreen, type MetaListScreenProps } from "./MetaListScreen";
 export interface MeuPlanoScreenProps extends Omit<MetaListScreenProps, "metas"> {
   metas: MetaComProgresso[];
   mesReferencia: string;
+  estadoCompetencia: EstadoCompetencia | null;
+  ultimaAtualizacao: string | null;
   gastoAtualAbs: number;
-  planejadoTotal: number | null;
   projecao: Projecao | null;
 }
 
 /**
  * Rearquitetura (Fase 2, ADR-007): tela-contêiner "Meu plano" — embute o
  * MetaListScreen já existente (não reescrito) e adiciona a visão mensal
- * (planejado total, gasto atual, projeção de fim de mês).
+ * (gasto atual, projeção de fim de mês). "Planejado"/"Restante" saíram do ar
+ * na Fase 5 (auditoria V2) — a soma das metas ativas conta o mesmo gasto
+ * várias vezes (geral + categoria + objetivo se sobrepõem por design). Volta
+ * na Fase 8, correto, vindo de um plano mensal aditivo (`plano_linhas`).
  */
 export function MeuPlanoScreen({
   metas,
   mesReferencia,
+  estadoCompetencia,
+  ultimaAtualizacao,
   gastoAtualAbs,
-  planejadoTotal,
   projecao,
   categorias,
   subcategoriasPorCategoria,
   objetivos,
 }: MeuPlanoScreenProps) {
+  const hoje = new Date();
+  const frescor = estadoCompetencia ? classificarFrescor(estadoCompetencia, ultimaAtualizacao, hoje) : null;
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <CalendarRange size={18} className="text-text-muted" strokeWidth={1.75} />
-        <h1 className="text-xl font-semibold text-text-primary">Meu plano</h1>
-        <span className="text-sm text-text-muted">· {formatCompetencia(mesReferencia)}</span>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <CalendarRange size={18} className="text-text-muted" strokeWidth={1.75} />
+          <h1 className="text-xl font-semibold text-text-primary">Meu plano</h1>
+          <span className="text-sm text-text-muted">· {formatCompetencia(mesReferencia)}</span>
+        </div>
+        {frescor && (
+          <p className={`text-sm ${frescor === "desatualizada" ? "text-state-warning" : "text-text-muted"}`}>
+            {rotuloFrescor(frescor, ultimaAtualizacao, hoje)}
+          </p>
+        )}
       </div>
 
       <KpiStrip>
-        {planejadoTotal !== null && <KpiTile label="Planejado (soma das metas ativas)" value={formatBRL(planejadoTotal)} />}
         <KpiTile label="Gasto atual" value={formatBRL(gastoAtualAbs)} />
-        {planejadoTotal !== null && (
-          <KpiTile
-            label="Restante do planejado"
-            value={formatBRL(planejadoTotal - gastoAtualAbs)}
-            tone={planejadoTotal - gastoAtualAbs < 0 ? "warning" : "success"}
-          />
-        )}
       </KpiStrip>
 
       {projecao && (

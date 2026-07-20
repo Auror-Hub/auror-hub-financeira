@@ -150,3 +150,26 @@ export async function carregarCompetenciaDetalhe(id: string): Promise<Competenci
   const todas = await carregarCompetencias();
   return todas.find((d) => d.competencia.id === id);
 }
+
+/**
+ * `criado_em` mais recente entre os lançamentos de uma competência —
+ * indicador de frescor (Fase 5, Auditoria V2: `classificarFrescor` em
+ * `src/lib/data/frescor.ts`). null quando não há lançamento nenhum no mês.
+ */
+export async function carregarUltimaAtualizacaoCompetencia(mesReferencia: string): Promise<string | null> {
+  const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
+
+  const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id").eq("perfil_id", perfilId);
+  const cartaoIds = (cartoesDoPerfil ?? []).map((c) => c.id as string);
+  if (cartaoIds.length === 0) return null;
+
+  const { data: ultimoLancamento } = await supabase
+    .from("lancamentos_brutos")
+    .select("criado_em")
+    .in("cartao_id", cartaoIds)
+    .eq("competencia_calculada", mesReferencia)
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (ultimoLancamento?.criado_em as string | undefined) ?? null;
+}

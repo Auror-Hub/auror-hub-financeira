@@ -46,10 +46,6 @@ export interface ResumoHome {
   itensAguardandoRevisao: number;
   /** Fração vs. média das até 3 competências fechadas anteriores. null = sem histórico suficiente pra comparar. */
   variacaoVsMedia: number | null;
-  /** Soma dos limites das metas ativas do mês. null = nenhuma meta ativa (nada planejado ainda). */
-  planejado: Centavos | null;
-  /** planejado - totalAnalisado. null quando `planejado` é null. */
-  restante: Centavos | null;
   /** Dias até o fim do mês civil da competência atual. null quando a competência atual não é o mês corrente real. */
   diasRestantes: number | null;
   /** criado_em mais recente entre os lançamentos da competência atual — indicador de frescor do dado. null sem lançamentos. */
@@ -223,10 +219,6 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     if (alerta) alertas.push(alerta);
   }
 
-  const planejado = metasAtivas.length > 0 ? metasAtivas.reduce((soma, m) => soma + m.valorLimiteEfetivo, 0) : null;
-  // totalConsolidado é a soma bruta de `valor` (despesas em centavos negativos) —
-  // somar (não subtrair) equivale a descontar o gasto absoluto do planejado.
-  const restante = planejado !== null ? planejado + atual.totalConsolidado : null;
   const diasRestantes = diasRestantesNoMes(atual.competencia.mesReferencia, new Date());
 
   const { data: ultimoLancamento } = await supabase
@@ -250,8 +242,6 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     quantidadeLancamentos: atual.totalLancamentos,
     itensAguardandoRevisao: atual.lancamentosPendentes,
     variacaoVsMedia,
-    planejado,
-    restante,
     diasRestantes,
     ultimaAtualizacao,
     narrativaPrincipal,

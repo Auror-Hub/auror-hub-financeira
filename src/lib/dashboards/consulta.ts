@@ -131,6 +131,10 @@ export async function carregarDadosDashboard(filtros: FiltrosDashboard): Promise
 const MULTIPLICADOR_DESPESA_EXTRAORDINARIA = 2;
 const LIMIAR_VARIACAO_CATEGORIA = 0.1;
 const PISO_DESPESA_EXTRAORDINARIA = 5000; // R$ 50,00 em centavos — ignora ruído de valores baixos
+// Fase 5 (Auditoria V2): "pressionada" exigia só variação relativa — uma categoria de
+// R$20 que dobra pra R$40 é +100% mas irrelevante. Piso absoluto garante que o aumento
+// em R$ também seja material, não só percentual (mesmo espírito do piso de extraordinária).
+const PISO_VARIACAO_CATEGORIA_REAIS = 10000; // R$ 100,00 em centavos
 const MAX_EXTRAORDINARIAS = 5;
 const MAX_FORNECEDORES_POR_CATEGORIA = 5;
 const SEM_SUBCATEGORIA = "(sem subcategoria)";
@@ -317,18 +321,16 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
     total: number;
     subcategorias: Map<string, number>;
     fornecedores: Map<string, number>;
-    valores: number[];
   }
   const porCategoria = new Map<string, AcumCategoria>();
   for (const i of atual.itens) {
     if (!i.categoriaId) continue;
     let acum = porCategoria.get(i.categoriaId);
     if (!acum) {
-      acum = { total: 0, subcategorias: new Map(), fornecedores: new Map(), valores: [] };
+      acum = { total: 0, subcategorias: new Map(), fornecedores: new Map() };
       porCategoria.set(i.categoriaId, acum);
     }
     acum.total += i.valor;
-    acum.valores.push(i.valor);
     const subRotulo = i.subcategoriaId ? rotuloPorTermo.get(i.subcategoriaId) ?? SEM_SUBCATEGORIA : SEM_SUBCATEGORIA;
     acum.subcategorias.set(subRotulo, (acum.subcategorias.get(subRotulo) ?? 0) + i.valor);
     acum.fornecedores.set(i.fornecedor, (acum.fornecedores.get(i.fornecedor) ?? 0) + i.valor);
@@ -359,25 +361,34 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
     })
     .sort((a, b) => b.total - a.total);
 
-  // Categorias pressionadas: subiram acima do limiar vs. período anterior.
+  // Categorias pressionadas: subiram acima do limiar relativo E do piso absoluto vs. período anterior.
   const pressionadas: CategoriaPressionada[] = categorias
-    .filter((c) => c.variacaoVsAnterior !== null && c.variacaoVsAnterior > LIMIAR_VARIACAO_CATEGORIA)
     .map((c) => ({
       rotulo: c.rotulo,
-      variacao: c.variacaoVsAnterior as number,
+      variacao: c.variacaoVsAnterior,
       aumento: c.total - (anterior.porCategoria.get(c.categoriaId) ?? 0),
     }))
+    .filter(
+      (c): c is { rotulo: string; variacao: number; aumento: number } =>
+        c.variacao !== null && c.variacao > LIMIAR_VARIACAO_CATEGORIA && c.aumento >= PISO_VARIACAO_CATEGORIA_REAIS,
+    )
     .sort((a, b) => b.variacao - a.variacao);
 
-  // Despesas extraordinárias: lançamentos individuais ≥ N× a média da própria categoria no período.
-  const mediaPorCategoria = new Map<string, number>();
-  for (const [categoriaId, acum] of porCategoria.entries()) {
-    if (acum.valores.length > 0) mediaPorCategoria.set(categoriaId, acum.total / acum.valores.length);
+  // Despesas extraordinárias: lançamentos individuais ≥ N× a média da categoria no
+  // período ANTERIOR (histórico) — nunca a média do próprio período atual, que se
+  // autodistorce com o próprio lançamento que está sendo avaliado.
+  const somaAnteriorPorCategoria = new Map<string, number>();
+  const contagemAnteriorPorCategoria = new Map<string, number>();
+  for (const i of anterior.itens) {
+    if (!i.categoriaId) continue;
+    somaAnteriorPorCategoria.set(i.categoriaId, (somaAnteriorPorCategoria.get(i.categoriaId) ?? 0) + i.valor);
+    contagemAnteriorPorCategoria.set(i.categoriaId, (contagemAnteriorPorCategoria.get(i.categoriaId) ?? 0) + 1);
   }
   const extraordinarias: DespesaExtraordinariaDash[] = atual.itens
     .filter((i) => i.categoriaId && i.valor >= PISO_DESPESA_EXTRAORDINARIA)
     .map((i) => {
-      const media = mediaPorCategoria.get(i.categoriaId as string) ?? 0;
+      const contagem = contagemAnteriorPorCategoria.get(i.categoriaId as string) ?? 0;
+      const media = contagem > 0 ? (somaAnteriorPorCategoria.get(i.categoriaId as string) ?? 0) / contagem : 0;
       return {
         fornecedor: i.fornecedor,
         categoriaRotulo: rotuloPorTermo.get(i.categoriaId as string) ?? "—",

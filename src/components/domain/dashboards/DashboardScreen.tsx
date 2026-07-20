@@ -26,18 +26,21 @@ import {
   Cell,
 } from "recharts";
 import type { PainelControle, CategoriaBreakdown } from "@/lib/dashboards/consulta";
-import { formatBRL, formatCompetencia } from "@/lib/format";
+import { formatBRL, formatCompetencia, formatDataHora } from "@/lib/format";
+import { classificarFrescor, rotuloFrescor } from "@/lib/data/frescor";
+import type { EstadoCompetencia } from "@/lib/domain/types";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 
-export type PresetPeriodo = "atual" | "3m" | "6m" | "12m" | "mes" | "custom";
+export type PresetPeriodo = "fechado" | "atual" | "3m" | "6m" | "12m" | "mes" | "custom";
 
 const CORES = ["#4a6cf7", "#d4860a", "#2da870", "#d94f3d", "#7a6ca8", "#7b96f9", "#b0752e", "#5aa17f"];
 
 const PRESETS: { chave: PresetPeriodo; rotulo: string }[] = [
+  { chave: "fechado", rotulo: "Último mês fechado" },
   { chave: "atual", rotulo: "Mês atual" },
   { chave: "3m", rotulo: "3 meses" },
   { chave: "6m", rotulo: "6 meses" },
@@ -48,13 +51,15 @@ export interface DashboardScreenProps {
   painel: PainelControle;
   objetivos: { id: string; rotulo: string }[];
   filtrosAtuais: { preset: PresetPeriodo; dataInicio: string; dataFim: string; mes?: string; objetivoId?: string };
+  /** Só presente quando o período resolve a exatamente uma competência (Fase 5, Auditoria V2). */
+  competenciaUnica: { estado: EstadoCompetencia; ultimaAtualizacao: string | null } | null;
 }
 
 function pct(fracao: number): number {
   return Math.round(fracao * 100);
 }
 
-export function DashboardScreen({ painel, objetivos, filtrosAtuais }: DashboardScreenProps) {
+export function DashboardScreen({ painel, objetivos, filtrosAtuais, competenciaUnica }: DashboardScreenProps) {
   const router = useRouter();
   const [dataInicio, setDataInicio] = useState(filtrosAtuais.dataInicio);
   const [dataFim, setDataFim] = useState(filtrosAtuais.dataFim);
@@ -82,6 +87,9 @@ export function DashboardScreen({ painel, objetivos, filtrosAtuais }: DashboardS
 
   const vazio = painel.total === 0;
 
+  const hoje = new Date();
+  const frescor = competenciaUnica ? classificarFrescor(competenciaUnica.estado, competenciaUnica.ultimaAtualizacao, hoje) : null;
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-2">
@@ -92,6 +100,12 @@ export function DashboardScreen({ painel, objetivos, filtrosAtuais }: DashboardS
         Do macro ao micro: onde o dinheiro vai, o que fugiu do padrão e onde uma redução pesa mais. Dado vivo do período —
         cada número vem com uma leitura ao lado.
       </p>
+      {frescor && (
+        <p className={`text-sm ${frescor === "desatualizada" ? "text-state-warning" : "text-text-muted"}`}>
+          {rotuloFrescor(frescor, competenciaUnica?.ultimaAtualizacao ?? null, hoje)}
+          {competenciaUnica?.ultimaAtualizacao && ` · Atualizado em ${formatDataHora(competenciaUnica.ultimaAtualizacao)}`}
+        </p>
+      )}
 
       {/* Controles: período + lente de objetivo */}
       <Card className="flex flex-wrap items-end gap-3">
@@ -150,6 +164,7 @@ export function DashboardScreen({ painel, objetivos, filtrosAtuais }: DashboardS
             <Button variant="secondary" size="sm" onClick={() => navegar({ preset: "custom", dataInicio, dataFim })}>
               Aplicar
             </Button>
+            <Badge tone="indigo">por data de compra</Badge>
           </div>
         )}
 
@@ -442,7 +457,7 @@ function ForaDoPadrao({ painel }: { painel: PainelControle }) {
       {painel.pressionadas.length > 0 && (
         <Card>
           <CardHeader title="Categorias pressionadas" count={painel.pressionadas.length} />
-          <p className="mb-3 text-sm text-text-secondary">Subiram acima de 10% vs o período anterior — o ponto de partida do &ldquo;por que gastei tanto&rdquo;.</p>
+          <p className="mb-3 text-sm text-text-secondary">Subiram acima de 10% e de R$100 vs o período anterior — o ponto de partida do &ldquo;por que gastei tanto&rdquo;.</p>
           <ul className="flex flex-col gap-2.5">
             {painel.pressionadas.map((p) => (
               <li key={p.rotulo} className="flex items-center justify-between gap-2">
