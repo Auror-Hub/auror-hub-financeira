@@ -1,7 +1,13 @@
 import { ConsultantScreen } from "@/components/domain/consultor/ConsultantScreen";
-import { carregarConversaAtual } from "@/lib/consultor/consulta";
+import { carregarConversaAtual, carregarConversas } from "@/lib/consultor/consulta";
 
 export default async function ConsultorPage() {
-  const conversaAtual = await carregarConversaAtual();
-  return <ConsultantScreen conversaIdInicial={conversaAtual.conversaId} mensagensIniciais={conversaAtual.mensagens} />;
+  const [conversaAtual, conversas] = await Promise.all([carregarConversaAtual(), carregarConversas()]);
+  return (
+    <ConsultantScreen
+      conversaIdInicial={conversaAtual.conversaId}
+      mensagensIniciais={conversaAtual.mensagens}
+      conversasIniciais={conversas}
+    />
+  );
 }

@@ -4,6 +4,7 @@ import { formatBRL, formatCompetencia, formatData } from "@/lib/format";
 import type { IntencaoConsultor, IntencaoEstruturada } from "./interpretar";
 import type { DadosRecuperados, DadosResumoInsights } from "./recuperar";
 import type { RascunhoAcao } from "./rascunho";
+import type { CampoFaltante } from "./slot-filling";
 
 export interface ItemComLink {
   texto: string;
@@ -49,6 +50,19 @@ export function respostaSemRascunho(intencao: IntencaoConsultor): RespostaConsul
     evidencias: [],
     interpretacao: "",
     ressalvas: "Nada foi alterado.",
+    acoesPossiveis: [],
+    aprofundamento: "",
+    rascunhoAcao: null,
+  };
+}
+
+/** Fase 11 (Auditoria V2): em vez da limitação genérica, pergunta especificamente pelo campo que falta — a próxima mensagem do usuário é tratada como resposta a essa pergunta (slot-filling, ver acoes.ts/interpretar.ts). */
+export function respostaPedindoCampo(campoFaltante: CampoFaltante): RespostaConsultor {
+  return {
+    respostaDireta: campoFaltante.pergunta,
+    evidencias: [],
+    interpretacao: "",
+    ressalvas: "Nada foi alterado ainda — só faltou uma informação pra montar a proposta.",
     acoesPossiveis: [],
     aprofundamento: "",
     rascunhoAcao: null,

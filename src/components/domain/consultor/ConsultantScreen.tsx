@@ -2,9 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MessageCircle, Send, ArrowRight, Sparkles } from "lucide-react";
-import { enviarPergunta, confirmarRascunhoConsultor, type MensagemConsultor } from "@/lib/consultor/acoes";
+import { MessageCircle, Send, ArrowRight, Sparkles, Plus } from "lucide-react";
+import {
+  enviarPergunta,
+  confirmarRascunhoConsultor,
+  descartarRascunhoConsultor,
+  carregarMensagensDaConversa,
+  type MensagemConsultor,
+} from "@/lib/consultor/acoes";
+import type { ConversaResumo } from "@/lib/consultor/consulta";
 import type { RascunhoAcao } from "@/lib/consultor/rascunho";
+import { formatDataHora } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -39,24 +47,31 @@ const ROTULO_TIPO_RASCUNHO: Record<RascunhoAcao["tipo"], string> = {
 
 /**
  * Rearquitetura (Fase 4, ADR-007): card de rascunho — a mutação real só
- * acontece quando a Victoria clica "Confirmar" aqui (nunca antes disso, nem
- * quando a mensagem foi só interpretada). `resolvido` é estado local da
- * sessão, não persistido — recarregar a página mostra o cartão de novo, mas
- * confirmar duas vezes é uma falha segura (ex.: "meta já existe"), nunca uma
- * duplicação silenciosa perigosa.
+ * acontece quando a Victoria clica "Confirmar" aqui. Fase 11 (Auditoria V2):
+ * `resolvidoComo` agora vem do servidor (`respostas_consultor.resolvido_como`)
+ * — recarregar a página não mostra mais os botões de novo pra um rascunho já
+ * decidido. O estado local (`decisaoLocal`) só cobre o intervalo entre o
+ * clique e a resposta do servidor, pra feedback imediato.
  */
-function RascunhoCard({ rascunho, resolvido, onResolvido }: { rascunho: RascunhoAcao; resolvido: boolean; onResolvido: () => void }) {
+function RascunhoCard({
+  mensagemId,
+  rascunho,
+  resolvidoComo,
+}: {
+  mensagemId: string;
+  rascunho: RascunhoAcao;
+  resolvidoComo: "confirmado" | "descartado" | null;
+}) {
   const [pendente, setPendente] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [confirmado, setConfirmado] = useState(false);
+  const [decisaoLocal, setDecisaoLocal] = useState<"confirmado" | "descartado" | null>(null);
 
   async function confirmar() {
     setPendente(true);
     setErro(null);
     try {
-      await confirmarRascunhoConsultor(rascunho);
-      setConfirmado(true);
-      onResolvido();
+      await confirmarRascunhoConsultor(mensagemId, rascunho);
+      setDecisaoLocal("confirmado");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao confirmar.");
     } finally {
@@ -64,13 +79,31 @@ function RascunhoCard({ rascunho, resolvido, onResolvido }: { rascunho: Rascunho
     }
   }
 
-  if (resolvido || confirmado) {
+  async function descartar() {
+    setPendente(true);
+    setErro(null);
+    try {
+      await descartarRascunhoConsultor(mensagemId);
+      setDecisaoLocal("descartado");
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha ao descartar.");
+    } finally {
+      setPendente(false);
+    }
+  }
+
+  const decisaoFinal = resolvidoComo ?? decisaoLocal;
+
+  if (decisaoFinal === "confirmado") {
     return (
       <div className="mt-3 flex items-center gap-2 rounded-input border border-dashed border-state-success/40 bg-state-success-tint p-2.5 text-sm text-state-success">
         <Sparkles size={14} strokeWidth={1.75} />
         Confirmado — {rascunho.resumo}
       </div>
     );
+  }
+  if (decisaoFinal === "descartado") {
+    return <div className="mt-3 rounded-input border border-dashed border-border-subtle p-2.5 text-sm text-text-muted">Descartado — {rascunho.resumo}</div>;
   }
 
   return (
@@ -85,7 +118,7 @@ function RascunhoCard({ rascunho, resolvido, onResolvido }: { rascunho: Rascunho
         <Button variant="primary" size="sm" disabled={pendente} onClick={confirmar}>
           {pendente ? "Confirmando..." : "Confirmar"}
         </Button>
-        <Button variant="ghost" size="sm" disabled={pendente} onClick={onResolvido}>
+        <Button variant="ghost" size="sm" disabled={pendente} onClick={descartar}>
           Descartar
         </Button>
       </div>
@@ -93,7 +126,7 @@ function RascunhoCard({ rascunho, resolvido, onResolvido }: { rascunho: Rascunho
   );
 }
 
-function BolhaConsultor({ mensagem, rascunhoResolvido, onRascunhoResolvido }: { mensagem: MensagemConsultor; rascunhoResolvido: boolean; onRascunhoResolvido: () => void }) {
+function BolhaConsultor({ mensagem }: { mensagem: MensagemConsultor }) {
   const resposta = mensagem.resposta;
   if (!resposta) {
     return (
@@ -147,25 +180,37 @@ function BolhaConsultor({ mensagem, rascunhoResolvido, onRascunhoResolvido }: { 
         {resposta.aprofundamento && <p className="mt-3 text-sm italic text-text-muted">{resposta.aprofundamento}</p>}
 
         {resposta.rascunhoAcao && (
-          <RascunhoCard rascunho={resposta.rascunhoAcao} resolvido={rascunhoResolvido} onResolvido={onRascunhoResolvido} />
+          <RascunhoCard mensagemId={mensagem.id} rascunho={resposta.rascunhoAcao} resolvidoComo={resposta.resolvidoComo ?? null} />
         )}
       </Card>
     </div>
   );
 }
 
+function rotuloConversa(conversa: ConversaResumo): string {
+  return conversa.titulo ?? `Conversa de ${formatDataHora(conversa.iniciadaEm)}`;
+}
+
+function truncarTitulo(texto: string): string {
+  const limpo = texto.trim().replace(/\s+/g, " ");
+  return limpo.length <= 60 ? limpo : limpo.slice(0, 57) + "...";
+}
+
 export interface ConsultantScreenProps {
   conversaIdInicial: string | null;
   mensagensIniciais: MensagemConsultor[];
+  conversasIniciais: ConversaResumo[];
 }
 
-export function ConsultantScreen({ conversaIdInicial, mensagensIniciais }: ConsultantScreenProps) {
+/** Fase 11 (Auditoria V2): gestão de múltiplas conversas — seletor + "Nova conversa", ambos client-side (a conversa só é criada de fato no banco quando a primeira mensagem é enviada). */
+export function ConsultantScreen({ conversaIdInicial, mensagensIniciais, conversasIniciais }: ConsultantScreenProps) {
   const [conversaId, setConversaId] = useState<string | null>(conversaIdInicial);
   const [mensagens, setMensagens] = useState<MensagemConsultor[]>(mensagensIniciais);
+  const [conversas, setConversas] = useState<ConversaResumo[]>(conversasIniciais);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [trocandoConversa, setTrocandoConversa] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [rascunhosResolvidos, setRascunhosResolvidos] = useState<Set<string>>(new Set());
 
   async function handleEnviar() {
     const perguntaTexto = texto.trim();
@@ -177,10 +222,36 @@ export function ConsultantScreen({ conversaIdInicial, mensagensIniciais }: Consu
       const resultado = await enviarPergunta(conversaId, perguntaTexto);
       setConversaId(resultado.conversaId);
       setMensagens((prev) => [...prev, resultado.mensagemUsuario, resultado.mensagemConsultor]);
+      setConversas((prev) =>
+        prev.some((c) => c.id === resultado.conversaId)
+          ? prev
+          : [{ id: resultado.conversaId, titulo: truncarTitulo(perguntaTexto), iniciadaEm: resultado.mensagemUsuario.criadoEm }, ...prev],
+      );
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao enviar a pergunta.");
     } finally {
       setEnviando(false);
+    }
+  }
+
+  function iniciarNovaConversa() {
+    setConversaId(null);
+    setMensagens([]);
+    setErro(null);
+  }
+
+  async function trocarConversa(idSelecionado: string) {
+    if (idSelecionado === conversaId) return;
+    setErro(null);
+    setTrocandoConversa(true);
+    try {
+      const conversaCarregada = await carregarMensagensDaConversa(idSelecionado);
+      setConversaId(conversaCarregada.conversaId);
+      setMensagens(conversaCarregada.mensagens);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha ao abrir a conversa.");
+    } finally {
+      setTrocandoConversa(false);
     }
   }
 
@@ -197,23 +268,33 @@ export function ConsultantScreen({ conversaIdInicial, mensagensIniciais }: Consu
         Consultor reconhece a limitação em vez de inventar.
       </p>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={conversaId ?? ""}
+          onChange={(e) => trocarConversa(e.target.value)}
+          disabled={trocandoConversa || conversas.length === 0}
+          className="h-[34px] min-w-[220px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary disabled:opacity-60"
+        >
+          {conversaId === null && <option value="">Nova conversa (ainda não enviada)</option>}
+          {conversas.map((c) => (
+            <option key={c.id} value={c.id}>
+              {rotuloConversa(c)}
+            </option>
+          ))}
+        </select>
+        <Button variant="secondary" size="sm" icon={<Plus size={14} strokeWidth={1.75} />} onClick={iniciarNovaConversa}>
+          Nova conversa
+        </Button>
+      </div>
+
       <Card className="flex min-h-[320px] flex-col gap-3">
-        {mensagens.length === 0 ? (
-          <p className="text-base text-text-muted">Nenhuma pergunta ainda nesta sessão.</p>
+        {trocandoConversa ? (
+          <p className="text-base text-text-muted">Carregando conversa...</p>
+        ) : mensagens.length === 0 ? (
+          <p className="text-base text-text-muted">Nenhuma pergunta ainda nesta conversa.</p>
         ) : (
           <div className="flex flex-col gap-3">
-            {mensagens.map((m) =>
-              m.autor === "usuario" ? (
-                <BolhaUsuario key={m.id} mensagem={m} />
-              ) : (
-                <BolhaConsultor
-                  key={m.id}
-                  mensagem={m}
-                  rascunhoResolvido={rascunhosResolvidos.has(m.id)}
-                  onRascunhoResolvido={() => setRascunhosResolvidos((prev) => new Set(prev).add(m.id))}
-                />
-              ),
-            )}
+            {mensagens.map((m) => (m.autor === "usuario" ? <BolhaUsuario key={m.id} mensagem={m} /> : <BolhaConsultor key={m.id} mensagem={m} />))}
           </div>
         )}
       </Card>

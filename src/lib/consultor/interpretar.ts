@@ -98,6 +98,12 @@ const FERRAMENTA_INTERPRETACAO = {
   },
 };
 
+/** Fase 11 (Auditoria V2): slot-filling — quando a conversa tem uma intenção de mutação incompleta pendente, a próxima mensagem do usuário é interpretada como resposta a ela, nunca como pergunta nova. */
+export interface ContextoPendente {
+  intencaoParcial: IntencaoEstruturada;
+  pergunta: string;
+}
+
 /**
  * Interpreta a mensagem livre do usuário em uma das 9 intenções suportadas
  * via tool-use (mesmo padrão de FERRAMENTA_CLASSIFICACAO em
@@ -111,6 +117,7 @@ export async function interpretarPergunta(
   pergunta: string,
   categoriasDisponiveis: string[],
   nomeFamilia: string,
+  contextoPendente?: ContextoPendente,
 ): Promise<IntencaoEstruturada> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada — necessária para interpretar a pergunta.");
@@ -118,10 +125,13 @@ export async function interpretarPergunta(
   const client = new Anthropic({ apiKey });
 
   const hoje = new Date().toISOString().slice(0, 10);
+  const blocoContextoPendente = contextoPendente
+    ? `\nCONTEXTO IMPORTANTE: a mensagem anterior do Consultor perguntou especificamente "${contextoPendente.pergunta}" como continuação de uma intenção ainda incompleta. A intenção parcial já reconhecida foi: ${JSON.stringify(contextoPendente.intencaoParcial)}. A mensagem do usuário abaixo é a resposta a essa pergunta — retorne a intenção COMPLETA: a mesma "intencao" e os mesmos campos já conhecidos acima, mais o campo novo extraído desta resposta. Se a resposta claramente não tiver relação com a pergunta feita (ex.: o usuário mudou de assunto), ignore o contexto e interprete a mensagem como uma pergunta nova.\n`
+    : "";
   const prompt = `Você interpreta mensagens financeiras da família ${nomeFamilia} feitas ao Consultor da AURÓR · Hub Financeira.
 
 Data de hoje: ${hoje}.
-
+${blocoContextoPendente}
 Categorias disponíveis (use o rótulo exato, nunca invente uma nova): ${categoriasDisponiveis.join(", ")}
 
 Só existem 9 intenções suportadas — escolha "fora_de_escopo" para qualquer coisa que não encaixe exatamente:
