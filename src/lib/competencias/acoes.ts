@@ -141,7 +141,11 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
   // Agente Narrador (Fase 7, reestruturado na Fase 10) — mesma disciplina best-effort do Analista.
   try {
     const { insights, recomendacoes } = await carregarInsightsDaCompetencia(competenciaId);
-    const { data: familiaRow } = await supabase.from("familias").select("nome").eq("id", perfilId).single();
+    const { data: familiaRow } = await supabase
+      .from("familias")
+      .select("nome, consentimento_comparacao_externa")
+      .eq("id", perfilId)
+      .single();
     const nomeFamilia = (familiaRow?.nome as string | undefined) ?? "a família";
 
     const [metas, plano, { data: competenciaAnterior }] = await Promise.all([
@@ -164,8 +168,7 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
       temInsightDeVariacaoCategoria: insights.some((i) => i.tipo === "variacao_categoria"),
       existeCompetenciaAnteriorFechada: competenciaAnterior !== null,
       rendaInformada: plano.rendaInformada,
-      // Fase 12 (perfil financeiro/consentimento) ainda não existe no schema — sempre inelegível até então.
-      consentimentoComparacaoExterna: false,
+      consentimentoComparacaoExterna: Boolean(familiaRow?.consentimento_comparacao_externa),
     };
 
     await gerarRelatorio(

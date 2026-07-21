@@ -25,7 +25,7 @@ export interface PacoteDadosRelatorio {
   existeCompetenciaAnteriorFechada: boolean;
   /** `planos_mensais.renda_informada` (Fase 8) — null quando não informada, nunca 0 por omissão. */
   rendaInformada: number | null;
-  /** Sempre false até a Fase 12 (perfil financeiro/consentimento não existem no schema ainda). */
+  /** `familias.consentimento_comparacao_externa` (Fase 12) — só true quando a família marcou explicitamente o consentimento em Configurações. */
   consentimentoComparacaoExterna: boolean;
 }
 

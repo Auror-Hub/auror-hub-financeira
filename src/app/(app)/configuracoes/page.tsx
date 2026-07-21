@@ -3,7 +3,10 @@ import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { SignOutButton } from "@/components/domain/auth/SignOutButton";
 import { AdicionarCartaoForm } from "@/components/domain/cartoes/AdicionarCartaoForm";
 import { FamiliaSection } from "@/components/domain/familia/FamiliaSection";
+import { PerfilFinanceiroSection } from "@/components/domain/familia/PerfilFinanceiroSection";
+import { CestaBasicaSection } from "@/components/domain/precos-externos/CestaBasicaSection";
 import { carregarFamilia } from "@/lib/familia/consulta";
+import { carregarCestaBasicaRecente } from "@/lib/precos-externos/consulta";
 import { Card, CardHeader } from "@/components/ui/Card";
 
 export default async function ConfiguracoesPage() {
@@ -12,7 +15,7 @@ export default async function ConfiguracoesPage() {
     .from("cartoes")
     .select("id, instituicao, apelido, tipo, ultimos_4_digitos, ativo")
     .eq("perfil_id", perfilId);
-  const familia = await carregarFamilia();
+  const [familia, cestaBasica] = await Promise.all([carregarFamilia(), carregarCestaBasicaRecente()]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,6 +43,10 @@ export default async function ConfiguracoesPage() {
       <AdicionarCartaoForm />
 
       <FamiliaSection familia={familia} />
+
+      <PerfilFinanceiroSection perfilFinanceiro={familia.perfilFinanceiro} souAdmin={familia.souAdmin} />
+
+      <CestaBasicaSection registros={cestaBasica} />
 
       <div>
         <SignOutButton />

@@ -131,6 +131,59 @@ export async function regenerarCodigoConvite(): Promise<void> {
   revalidatePath("/configuracoes");
 }
 
+const SITUACOES_MORADIA = ["propria", "alugada", "financiada", "outra"] as const;
+
+/**
+ * Fase 12 (Auditoria V2): perfil financeiro opcional da família — renda,
+ * localização, moradia, e o consentimento explícito pra comparação externa
+ * (benchmark). Tudo opcional; só admin edita (mesma policy de UPDATE de
+ * `familias` já existente). Nunca infere consentimento — só grava `true`
+ * quando o próprio formulário enviar o checkbox marcado.
+ */
+export async function atualizarPerfilFinanceiro(formData: FormData): Promise<void> {
+  const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
+
+  const souAdmin = await verificarSouAdmin(supabase, perfilId);
+  if (!souAdmin) throw new Error("Só um admin pode editar o perfil financeiro da família.");
+
+  const rendaBrutaTexto = (formData.get("rendaBrutaMensal") as string | null)?.trim();
+  const rendaLiquidaTexto = (formData.get("rendaLiquidaMensal") as string | null)?.trim();
+  const cidade = (formData.get("cidade") as string | null)?.trim() || null;
+  const estado = (formData.get("estado") as string | null)?.trim() || null;
+  const numeroPessoasTexto = (formData.get("numeroPessoas") as string | null)?.trim();
+  const situacaoMoradiaBruta = (formData.get("situacaoMoradia") as string | null) || null;
+  const consentimentoComparacaoExterna = formData.get("consentimentoComparacaoExterna") === "on";
+
+  const rendaBrutaMensal = rendaBrutaTexto ? Math.round(Number(rendaBrutaTexto) * 100) : null;
+  if (rendaBrutaTexto && (!Number.isFinite(rendaBrutaMensal) || (rendaBrutaMensal as number) <= 0)) throw new Error("Renda bruta mensal inválida.");
+
+  const rendaLiquidaMensal = rendaLiquidaTexto ? Math.round(Number(rendaLiquidaTexto) * 100) : null;
+  if (rendaLiquidaTexto && (!Number.isFinite(rendaLiquidaMensal) || (rendaLiquidaMensal as number) <= 0)) throw new Error("Renda líquida mensal inválida.");
+
+  const numeroPessoas = numeroPessoasTexto ? Number(numeroPessoasTexto) : null;
+  if (numeroPessoasTexto && (!Number.isInteger(numeroPessoas) || (numeroPessoas as number) <= 0)) throw new Error("Número de pessoas inválido.");
+
+  if (situacaoMoradiaBruta && !(SITUACOES_MORADIA as readonly string[]).includes(situacaoMoradiaBruta)) {
+    throw new Error("Situação de moradia inválida.");
+  }
+
+  const { error } = await supabase
+    .from("familias")
+    .update({
+      renda_bruta_mensal: rendaBrutaMensal,
+      renda_liquida_mensal: rendaLiquidaMensal,
+      cidade,
+      estado,
+      numero_pessoas: numeroPessoas,
+      situacao_moradia: situacaoMoradiaBruta,
+      consentimento_comparacao_externa: consentimentoComparacaoExterna,
+    })
+    .eq("id", perfilId);
+  if (error) throw new Error("Falha ao atualizar perfil financeiro: " + error.message);
+
+  revalidatePath("/configuracoes");
+}
+
 async function verificarSouAdmin(supabase: Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"], perfilId: string): Promise<boolean> {
   const {
     data: { user },

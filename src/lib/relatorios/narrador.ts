@@ -6,6 +6,7 @@ import type { MetaComProgresso } from "@/lib/metas/consulta";
 import { formatBRL, formatCompetencia } from "@/lib/format";
 import { selecionarModulos, type ModuloElegivel, type ModuloRelatorioSlug, type PacoteDadosRelatorio } from "./orquestrador";
 import { validarRelatorio, extrairValoresCitados } from "./validacao";
+import { montarComparacaoExterna, type ComparacaoExterna } from "./benchmark";
 
 const VERSAO_NARRADOR = "narrador-llm-v1";
 const MODELO = "claude-haiku-4-5-20251001";
@@ -49,6 +50,8 @@ export interface DadosNarrador {
   naoAlocado: number | null;
   coberturaClassificacao: number;
   nomeFamilia: string;
+  /** Fase 12 (Auditoria V2) — vazio quando o módulo benchmark_externo não está elegível, ou nenhuma categoria tem mapeamento/dado disponível. */
+  comparacoesExternas: ComparacaoExterna[];
 }
 
 function pctTexto(valor: number, total: number): string {
@@ -105,6 +108,16 @@ function montarBlocoDados(dados: DadosNarrador): { texto: string; valoresConheci
         }`
       : "Renda não informada neste mês.";
 
+  // Cada `faixaTexto` já é um fato pré-existente (calculado em benchmark.ts,
+  // não pelo narrador) — mesmo tratamento de insights/recomendações: os
+  // números que já aparecem nele são legítimos, mesmo que o narrador só o repita.
+  for (const c of dados.comparacoesExternas) conhecidos.push(...extrairValoresCitados(c.faixaTexto));
+  const comparacoesExternasTexto = dados.comparacoesExternas.length
+    ? dados.comparacoesExternas
+        .map((c) => `- ${dados.categoriaRotulos.get(c.categoriaId) ?? "categoria desconhecida"}: ${c.faixaTexto}`)
+        .join("\n")
+    : "Nenhuma categoria com mapeamento e dado externo disponível para este período.";
+
   const texto = `Total consolidado: ${v(formatBRL(totalConsolidado))}
 Total de lançamentos: ${totalLancamentos}
 Cobertura de revisão: ${v(`${Math.round(dados.coberturaClassificacao * 100)}%`)}
@@ -125,7 +138,10 @@ Metas ativas:
 ${metasTexto}
 
 Renda e plano do mês:
-${rendaTexto}`;
+${rendaTexto}
+
+Comparação com referências externas (IPCA/IBGE — sempre faixa de referência, nunca "certo/errado"):
+${comparacoesExternasTexto}`;
 
   return { texto, valoresConhecidos: conhecidos };
 }
@@ -142,6 +158,7 @@ REGRAS INEGOCIÁVEIS:
 - Todo valor em reais ou percentual que você citar precisa ser EXATAMENTE um dos valores já fornecidos abaixo (copie a formatação, não recalcule).
 - Para qualquer seção sem dado suficiente para uma afirmação específica, escreva um texto curto reconhecendo a limitação (ex.: "ainda não há dados suficientes para X") em vez de inventar conteúdo.
 - Nunca mencione nomes de membros específicos da família ou a distribuição de gastos por pessoa — essa informação não foi fornecida a você de propósito e não deve ser citada nem estimada.
+- Ao citar qualquer referência externa (IPCA/IBGE, cesta básica, ou qualquer comparação fora dos dados da própria família): use sempre linguagem de faixa/referência ("referência", "faixa", "famílias com perfil semelhante") — NUNCA "certo", "errado" ou "ideal". Nunca trate uma variação de preço como causa comprovada de um gasto da família — no máximo "pode ter contribuído". Toda citação externa deve mencionar fonte, período e região explicitamente (já incluídos no dado fornecido — nunca omita ao citar).
 - Responda em texto plano, em português — SEM tags HTML, SEM markdown (sem #, **, _, etc.). Parágrafos separados por uma linha em branco. Itens de lista começam com "- " no início da linha.
 - Escreva exatamente as seções abaixo, cada uma iniciada por uma linha idêntica ao marcador indicado (a linha do marcador não deve ter mais nada além do marcador), seguida do texto da seção. Não escreva um título visível — o título já é conhecido pelo marcador.
 
@@ -250,6 +267,17 @@ export async function gerarRelatorio(
   const rotulosPorId = new Map((termosRaw ?? []).map((t) => [t.id as string, t.rotulo as string]));
 
   const modulos = selecionarModulos(pacote);
+
+  const comparacoesExternas: ComparacaoExterna[] = [];
+  if (modulos.some((m) => m.slug === "benchmark_externo")) {
+    for (const categoriaId of idsCategorias) {
+      const comparacao = await montarComparacaoExterna(categoriaId, mesReferencia, {
+        consentimentoComparacaoExterna: pacote.consentimentoComparacaoExterna,
+      });
+      if (comparacao) comparacoesExternas.push(comparacao);
+    }
+  }
+
   const dadosNarrador: DadosNarrador = {
     dadosCongelados,
     categoriaRotulos: rotulosPorId,
@@ -261,6 +289,7 @@ export async function gerarRelatorio(
     naoAlocado: plano.naoAlocado,
     coberturaClassificacao: pacote.coberturaClassificacao,
     nomeFamilia,
+    comparacoesExternas,
   };
   const { texto: blocoDadosTexto, valoresConhecidos } = montarBlocoDados(dadosNarrador);
   const prompt = montarPrompt(mesReferencia, modulos, blocoDadosTexto, nomeFamilia);

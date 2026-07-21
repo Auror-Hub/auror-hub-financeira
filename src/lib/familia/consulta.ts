@@ -11,21 +11,37 @@ export interface MembroFamilia {
   status: "ativo" | "pendente" | "recusado";
 }
 
+export type SituacaoMoradia = "propria" | "alugada" | "financiada" | "outra";
+
+/** Fase 12 (Auditoria V2): extensão opcional de `familias` — tudo nullable, nunca bloqueia uso do resto da Hub. Só habilita comparação externa (relatório/benchmark) quando `consentimentoComparacaoExterna` é explicitamente true. */
+export interface PerfilFinanceiroFamilia {
+  rendaBrutaMensal: number | null;
+  rendaLiquidaMensal: number | null;
+  cidade: string | null;
+  estado: string | null;
+  numeroPessoas: number | null;
+  situacaoMoradia: SituacaoMoradia | null;
+  consentimentoComparacaoExterna: boolean;
+}
+
 export interface FamiliaDados {
   id: string;
   nome: string;
   codigoConvite: string;
   souAdmin: boolean;
   membros: MembroFamilia[];
+  perfilFinanceiro: PerfilFinanceiroFamilia;
 }
 
-/** Carrega a família do usuário autenticado (nome, código de convite, membros/pendências) — usado em Configurações → Família. */
+/** Carrega a família do usuário autenticado (nome, código de convite, membros/pendências, perfil financeiro) — usado em Configurações → Família. */
 export async function carregarFamilia(): Promise<FamiliaDados> {
   const { supabase, user, perfilId } = await perfilDoUsuarioAutenticado();
 
   const { data: familia, error: errFamilia } = await supabase
     .from("familias")
-    .select("id, nome, codigo_convite")
+    .select(
+      "id, nome, codigo_convite, renda_bruta_mensal, renda_liquida_mensal, cidade, estado, numero_pessoas, situacao_moradia, consentimento_comparacao_externa",
+    )
     .eq("id", perfilId)
     .single();
   if (errFamilia || !familia) throw new Error("Família não encontrada.");
@@ -64,6 +80,15 @@ export async function carregarFamilia(): Promise<FamiliaDados> {
     codigoConvite: familia.codigo_convite as string,
     souAdmin,
     membros,
+    perfilFinanceiro: {
+      rendaBrutaMensal: (familia.renda_bruta_mensal as number | null) ?? null,
+      rendaLiquidaMensal: (familia.renda_liquida_mensal as number | null) ?? null,
+      cidade: (familia.cidade as string | null) ?? null,
+      estado: (familia.estado as string | null) ?? null,
+      numeroPessoas: (familia.numero_pessoas as number | null) ?? null,
+      situacaoMoradia: (familia.situacao_moradia as SituacaoMoradia | null) ?? null,
+      consentimentoComparacaoExterna: Boolean(familia.consentimento_comparacao_externa),
+    },
   };
 }
 
