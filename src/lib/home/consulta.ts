@@ -8,6 +8,7 @@ import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { carregarLancamentosComCategoria } from "@/lib/lancamentos/porCategoria";
 import { carregarMetas } from "@/lib/metas/consulta";
 import { gerarAlerta } from "@/lib/metas/avaliacao";
+import { carregarPlanoMensal } from "@/lib/plano/consulta";
 import { diasRestantesNoMes } from "@/lib/data/competencia";
 import { limiteInicioDoDia } from "@/lib/data/limites";
 import type { AnoMes, Centavos, Competencia, DataHoraISO, Insight, Recomendacao } from "@/lib/domain/types";
@@ -46,6 +47,10 @@ export interface ResumoHome {
   itensAguardandoRevisao: number;
   /** Fração vs. média das até 3 competências fechadas anteriores. null = sem histórico suficiente pra comparar. */
   variacaoVsMedia: number | null;
+  /** Soma de `plano_linhas` do mês atual (Fase 8, Auditoria V2). null = sem plano feito ainda, nunca soma de `metas`. */
+  planejado: Centavos | null;
+  /** planejado − gasto absoluto do mês. null quando `planejado` é null. */
+  restante: Centavos | null;
   /** Dias até o fim do mês civil da competência atual. null quando a competência atual não é o mês corrente real. */
   diasRestantes: number | null;
   /** criado_em mais recente entre os lançamentos da competência atual — indicador de frescor do dado. null sem lançamentos. */
@@ -219,6 +224,10 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     if (alerta) alertas.push(alerta);
   }
 
+  const plano = await carregarPlanoMensal(atual.competencia.mesReferencia);
+  const planejado = plano.linhas.length > 0 ? plano.total : null;
+  const restante = planejado !== null ? planejado - Math.abs(atual.totalConsolidado) : null;
+
   const diasRestantes = diasRestantesNoMes(atual.competencia.mesReferencia, new Date());
 
   const { data: ultimoLancamento } = await supabase
@@ -242,6 +251,8 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     quantidadeLancamentos: atual.totalLancamentos,
     itensAguardandoRevisao: atual.lancamentosPendentes,
     variacaoVsMedia,
+    planejado,
+    restante,
     diasRestantes,
     ultimaAtualizacao,
     narrativaPrincipal,

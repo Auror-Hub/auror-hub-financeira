@@ -4,40 +4,49 @@ import { classificarFrescor, rotuloFrescor } from "@/lib/data/frescor";
 import type { EstadoCompetencia } from "@/lib/domain/types";
 import type { Projecao } from "@/lib/metas/projecao";
 import type { MetaComProgresso } from "@/lib/metas/consulta";
+import type { PlanoMensal } from "@/lib/plano/consulta";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 import { MetaListScreen, type MetaListScreenProps } from "./MetaListScreen";
+import { PlanoMensalSection } from "./PlanoMensalSection";
 
 export interface MeuPlanoScreenProps extends Omit<MetaListScreenProps, "metas"> {
   metas: MetaComProgresso[];
   mesReferencia: string;
+  mesAnterior: string;
   estadoCompetencia: EstadoCompetencia | null;
   ultimaAtualizacao: string | null;
   gastoAtualAbs: number;
   projecao: Projecao | null;
+  plano: PlanoMensal;
+  planoAnteriorDisponivel: boolean;
 }
 
 /**
  * Rearquitetura (Fase 2, ADR-007): tela-contêiner "Meu plano" — embute o
- * MetaListScreen já existente (não reescrito) e adiciona a visão mensal
- * (gasto atual, projeção de fim de mês). "Planejado"/"Restante" saíram do ar
- * na Fase 5 (auditoria V2) — a soma das metas ativas conta o mesmo gasto
- * várias vezes (geral + categoria + objetivo se sobrepõem por design). Volta
- * na Fase 8, correto, vindo de um plano mensal aditivo (`plano_linhas`).
+ * MetaListScreen já existente e adiciona a visão mensal (gasto atual,
+ * projeção). "Planejado"/"Restante" voltaram na Fase 8 (Auditoria V2),
+ * agora sourced de `plano` (plano_linhas, aditivo por construção) — nunca
+ * da soma de `metas`, que podem se sobrepor por design.
  */
 export function MeuPlanoScreen({
   metas,
   mesReferencia,
+  mesAnterior,
   estadoCompetencia,
   ultimaAtualizacao,
   gastoAtualAbs,
   projecao,
+  plano,
+  planoAnteriorDisponivel,
   categorias,
   subcategoriasPorCategoria,
   objetivos,
 }: MeuPlanoScreenProps) {
   const hoje = new Date();
   const frescor = estadoCompetencia ? classificarFrescor(estadoCompetencia, ultimaAtualizacao, hoje) : null;
+  const planejado = plano.linhas.length > 0 ? plano.total : null;
+  const restante = planejado !== null ? planejado - gastoAtualAbs : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,7 +64,11 @@ export function MeuPlanoScreen({
       </div>
 
       <KpiStrip>
+        {planejado !== null && <KpiTile label="Planejado" value={formatBRL(planejado)} />}
         <KpiTile label="Gasto atual" value={formatBRL(gastoAtualAbs)} />
+        {restante !== null && (
+          <KpiTile label="Restante do planejado" value={formatBRL(restante)} tone={restante < 0 ? "warning" : "success"} />
+        )}
       </KpiStrip>
 
       {projecao && (
@@ -68,6 +81,14 @@ export function MeuPlanoScreen({
           </p>
         </Card>
       )}
+
+      <PlanoMensalSection
+        mesReferencia={mesReferencia}
+        plano={plano}
+        categorias={categorias}
+        mesAnterior={mesAnterior}
+        planoAnteriorDisponivel={planoAnteriorDisponivel}
+      />
 
       <MetaListScreen metas={metas} categorias={categorias} subcategoriasPorCategoria={subcategoriasPorCategoria} objetivos={objetivos} />
     </div>

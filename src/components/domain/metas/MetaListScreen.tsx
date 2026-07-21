@@ -113,7 +113,7 @@ export function MetaListScreen({ metas, categorias, subcategoriasPorCategoria, o
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target size={20} className="text-text-muted" strokeWidth={1.75} />
-          <h1 className="text-xl font-semibold text-text-primary">Metas</h1>
+          <h1 className="text-xl font-semibold text-text-primary">Metas de acompanhamento</h1>
         </div>
         <Button variant="primary" size="sm" icon={<Plus size={14} strokeWidth={1.75} />} onClick={abrirNova}>
           Nova meta
@@ -121,7 +121,8 @@ export function MetaListScreen({ metas, categorias, subcategoriasPorCategoria, o
       </div>
       <p className="text-sm text-text-muted">
         Teto de gasto (valor fixo, ou redução % sobre a média histórica) por categoria/subcategoria/objetivo, ou geral — comparado
-        com o gasto real da competência atual. Alerta na Home a partir de 80% do limite.
+        com o gasto real da competência atual. Alerta na Home a partir de 80% do limite. Metas não somam ao Plano do mês acima —
+        podem se sobrepor de propósito (ex.: uma meta geral e uma por categoria ao mesmo tempo).
       </p>
 
       {erro && <ErrorState texto={erro} />}

@@ -82,6 +82,17 @@ export default async function HomePage() {
             href="/dashboards?preset=atual"
           />
         )}
+        {resumo.planejado !== null && (
+          <KpiTile label="Planejado" value={formatBRL(resumo.planejado)} href="/meu-plano" />
+        )}
+        {resumo.restante !== null && (
+          <KpiTile
+            label="Restante do planejado"
+            value={formatBRL(resumo.restante)}
+            tone={resumo.restante < 0 ? "warning" : "success"}
+            href="/meu-plano"
+          />
+        )}
         {resumo.diasRestantes !== null && (
           <KpiTile label="Dias restantes no mês" value={String(resumo.diasRestantes)} />
         )}

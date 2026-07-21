@@ -1,8 +1,9 @@
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarMetas } from "@/lib/metas/consulta";
 import { carregarCompetencias, carregarUltimaAtualizacaoCompetencia } from "@/lib/competencias/consulta";
-import { diasDecorridosNoMes } from "@/lib/data/competencia";
+import { diasDecorridosNoMes, mesesAnteriores } from "@/lib/data/competencia";
 import { calcularProjecao } from "@/lib/metas/projecao";
+import { carregarPlanoMensal } from "@/lib/plano/consulta";
 import { MeuPlanoScreen } from "@/components/domain/metas/MeuPlanoScreen";
 
 export default async function MeuPlanoPage() {
@@ -30,14 +31,26 @@ export default async function MeuPlanoPage() {
   const projecao = dias ? calcularProjecao(gastoAtualAbs, dias.decorridos, dias.total) : null;
   const ultimaAtualizacao = atual ? await carregarUltimaAtualizacaoCompetencia(atual.competencia.mesReferencia) : null;
 
+  const mesReferencia = atual?.competencia.mesReferencia ?? "";
+  const mesAnterior = mesReferencia ? mesesAnteriores(mesReferencia, 1)[0] : "";
+  const plano = mesReferencia
+    ? await carregarPlanoMensal(mesReferencia)
+    : { id: null, mesReferencia: "", rendaInformada: null, linhas: [], total: 0, naoAlocado: null };
+  // Só vale a pena checar o plano do mês anterior quando o mês atual ainda não tem plano — é a condição do nudge.
+  const planoAnterior = plano.id === null && mesAnterior ? await carregarPlanoMensal(mesAnterior) : null;
+  const planoAnteriorDisponivel = Boolean(planoAnterior && planoAnterior.linhas.length > 0);
+
   return (
     <MeuPlanoScreen
       metas={metas}
-      mesReferencia={atual?.competencia.mesReferencia ?? ""}
+      mesReferencia={mesReferencia}
+      mesAnterior={mesAnterior}
       estadoCompetencia={atual?.competencia.estado ?? null}
       ultimaAtualizacao={ultimaAtualizacao}
       gastoAtualAbs={gastoAtualAbs}
       projecao={projecao}
+      plano={plano}
+      planoAnteriorDisponivel={planoAnteriorDisponivel}
       categorias={categorias}
       subcategoriasPorCategoria={subcategoriasPorCategoria}
       objetivos={objetivos}
