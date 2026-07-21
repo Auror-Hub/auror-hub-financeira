@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -26,14 +27,20 @@ import {
   Cell,
 } from "recharts";
 import type { PainelControle, CategoriaBreakdown } from "@/lib/dashboards/consulta";
-import { formatBRL, formatCompetencia, formatDataHora } from "@/lib/format";
+import type { LinhaMatriz, SituacaoMatriz, TendenciaMatriz } from "@/lib/dashboards/matriz";
+import type { SinalPriorizado } from "@/lib/dashboards/sinais";
+import type { PlanoMensal } from "@/lib/plano/consulta";
+import type { Projecao } from "@/lib/metas/projecao";
+import { mesesAnteriores } from "@/lib/data/competencia";
+import { formatBRL, formatCompetencia, formatDataHora, formatVariacaoPercentual } from "@/lib/format";
 import { classificarFrescor, rotuloFrescor } from "@/lib/data/frescor";
 import type { EstadoCompetencia } from "@/lib/domain/types";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Badge } from "@/components/ui/Badge";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { KpiStrip, KpiTile } from "@/components/ui/KpiTile";
 
 export type PresetPeriodo = "fechado" | "atual" | "3m" | "6m" | "12m" | "mes" | "custom";
 
@@ -47,23 +54,54 @@ const PRESETS: { chave: PresetPeriodo; rotulo: string }[] = [
   { chave: "12m", rotulo: "12 meses" },
 ];
 
+type AbaExplorar = "painel" | "composicao" | "evolucao";
+
+const ABAS: { chave: AbaExplorar; rotulo: string }[] = [
+  { chave: "painel", rotulo: "Painel do mês" },
+  { chave: "composicao", rotulo: "Composição" },
+  { chave: "evolucao", rotulo: "Evolução" },
+];
+
 export interface DashboardScreenProps {
   painel: PainelControle;
   objetivos: { id: string; rotulo: string }[];
   filtrosAtuais: { preset: PresetPeriodo; dataInicio: string; dataFim: string; mes?: string; objetivoId?: string };
   /** Só presente quando o período resolve a exatamente uma competência (Fase 5, Auditoria V2). */
   competenciaUnica: { estado: EstadoCompetencia; ultimaAtualizacao: string | null } | null;
+  /** Fase 9 (Auditoria V2): "Painel do mês" é sempre ancorado a um único mês. */
+  mesFoco: string;
+  painelMesFoco: PainelControle;
+  plano: PlanoMensal;
+  matriz: LinhaMatriz[];
+  sinais: SinalPriorizado[];
+  mesAnteriorTotal: number;
+  projecao: Projecao | null;
+  coberturaRevisao: number | null;
 }
 
 function pct(fracao: number): number {
   return Math.round(fracao * 100);
 }
 
-export function DashboardScreen({ painel, objetivos, filtrosAtuais, competenciaUnica }: DashboardScreenProps) {
+export function DashboardScreen({
+  painel,
+  objetivos,
+  filtrosAtuais,
+  competenciaUnica,
+  mesFoco,
+  painelMesFoco,
+  plano,
+  matriz,
+  sinais,
+  mesAnteriorTotal,
+  projecao,
+  coberturaRevisao,
+}: DashboardScreenProps) {
   const router = useRouter();
   const [dataInicio, setDataInicio] = useState(filtrosAtuais.dataInicio);
   const [dataFim, setDataFim] = useState(filtrosAtuais.dataFim);
   const [mes, setMes] = useState(filtrosAtuais.mes ?? filtrosAtuais.dataInicio.slice(0, 7));
+  const [aba, setAba] = useState<AbaExplorar>("painel");
 
   function navegar(patch: Partial<{ preset: PresetPeriodo; dataInicio: string; dataFim: string; mes: string; objetivoId: string }>) {
     const preset = patch.preset ?? filtrosAtuais.preset;
@@ -186,23 +224,243 @@ export function DashboardScreen({ painel, objetivos, filtrosAtuais, competenciaU
         </label>
       </Card>
 
-      {vazio ? (
-        <Card className="bg-surface-secondary">
-          <p className="text-base text-text-secondary">
-            Nenhum lançamento decidido em {painel.periodo.rotulo}
-            {objetivoAtivo ? ` para o objetivo ${objetivoAtivo}` : ""}. Classifique lançamentos na Caixa de Entrada ou amplie o
-            período.
-          </p>
-        </Card>
-      ) : (
-        <>
-          <PulsoHeader painel={painel} objetivoAtivo={objetivoAtivo} />
-          <DrilldownCategorias categorias={painel.categorias} />
-          <ForaDoPadrao painel={painel} />
-          <EvolucaoEObjetivo painel={painel} />
-        </>
+      <div className="flex gap-1 border-b border-border-subtle">
+        {ABAS.map((a) => (
+          <button
+            key={a.chave}
+            type="button"
+            onClick={() => setAba(a.chave)}
+            className={`px-3 py-2 text-base font-medium ${
+              aba === a.chave
+                ? "border-b-2 border-action-primary text-text-primary"
+                : "text-text-muted hover:text-text-secondary"
+            }`}
+          >
+            {a.rotulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === "painel" && (
+        <PainelDoMesTab
+          mesFoco={mesFoco}
+          painelMesFoco={painelMesFoco}
+          plano={plano}
+          matriz={matriz}
+          sinais={sinais}
+          mesAnteriorTotal={mesAnteriorTotal}
+          projecao={projecao}
+          coberturaRevisao={coberturaRevisao}
+        />
       )}
+
+      {aba === "composicao" &&
+        (vazio ? (
+          <Card className="bg-surface-secondary">
+            <p className="text-base text-text-secondary">
+              Nenhum lançamento decidido em {painel.periodo.rotulo}
+              {objetivoAtivo ? ` para o objetivo ${objetivoAtivo}` : ""}. Classifique lançamentos na Caixa de Entrada ou amplie o
+              período.
+            </p>
+          </Card>
+        ) : (
+          <>
+            <PulsoHeader painel={painel} objetivoAtivo={objetivoAtivo} />
+            <DrilldownCategorias categorias={painel.categorias} />
+            <ForaDoPadrao painel={painel} />
+          </>
+        ))}
+
+      {aba === "evolucao" &&
+        (vazio ? (
+          <Card className="bg-surface-secondary">
+            <p className="text-base text-text-secondary">
+              Nenhum lançamento decidido em {painel.periodo.rotulo}
+              {objetivoAtivo ? ` para o objetivo ${objetivoAtivo}` : ""}. Classifique lançamentos na Caixa de Entrada ou amplie o
+              período.
+            </p>
+          </Card>
+        ) : (
+          <EvolucaoEObjetivo painel={painel} />
+        ))}
     </div>
+  );
+}
+
+/* ── Painel do mês (Fase 9, Auditoria V2) — control center, aba padrão ───── */
+
+const NATUREZA_ROTULOS: Record<string, string> = {
+  comprometido: "Comprometido",
+  protegido: "Protegido",
+  ajustavel: "Ajustável",
+  reserva: "Reserva",
+};
+
+const SITUACAO_INFO: Record<SituacaoMatriz, { rotulo: string; tone: BadgeTone }> = {
+  dentro: { rotulo: "Dentro do plano", tone: "green" },
+  atencao: { rotulo: "Atenção", tone: "gold" },
+  excedido: { rotulo: "Excedido", tone: "terra" },
+  sem_plano: { rotulo: "Sem plano", tone: "slate" },
+};
+
+function tendenciaTexto(t: TendenciaMatriz): string {
+  return t === "subindo" ? "↑ Subindo" : t === "caindo" ? "↓ Caindo" : t === "estavel" ? "→ Estável" : "—";
+}
+
+function PainelDoMesTab({
+  mesFoco,
+  painelMesFoco,
+  plano,
+  matriz,
+  sinais,
+  mesAnteriorTotal,
+  projecao,
+  coberturaRevisao,
+}: {
+  mesFoco: string;
+  painelMesFoco: PainelControle;
+  plano: PlanoMensal;
+  matriz: LinhaMatriz[];
+  sinais: SinalPriorizado[];
+  mesAnteriorTotal: number;
+  projecao: Projecao | null;
+  coberturaRevisao: number | null;
+}) {
+  const mesAnterior = mesesAnteriores(mesFoco, 1)[0];
+  const planejado = plano.linhas.length > 0 ? plano.total : null;
+  const variacaoVsAnterior = mesAnteriorTotal > 0 ? (painelMesFoco.total - mesAnteriorTotal) / mesAnteriorTotal : null;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <Card>
+        <CardHeader title={`Pulso de ${formatCompetencia(mesFoco)}`} />
+        <KpiStrip>
+          <KpiTile label="Realizado" value={formatBRL(painelMesFoco.total)} href={`/historico?competenciaMes=${mesFoco}`} />
+          {planejado !== null && <KpiTile label="Planejado" value={formatBRL(planejado)} href="/meu-plano" />}
+          {planejado !== null && (
+            <KpiTile
+              label="Restante do planejado"
+              value={formatBRL(planejado - painelMesFoco.total)}
+              tone={planejado - painelMesFoco.total < 0 ? "warning" : "success"}
+            />
+          )}
+          <KpiTile
+            label={`Vs. ${formatCompetencia(mesAnterior)}`}
+            value={variacaoVsAnterior !== null ? formatVariacaoPercentual(variacaoVsAnterior) : "—"}
+            tone={variacaoVsAnterior !== null ? (variacaoVsAnterior > 0 ? "warning" : "success") : undefined}
+          />
+          {projecao && (
+            <KpiTile
+              label="Projeção fim do mês"
+              value={formatBRL(projecao.estimativa)}
+              hint={`entre ${formatBRL(projecao.minimo)} e ${formatBRL(projecao.maximo)}`}
+            />
+          )}
+          {coberturaRevisao !== null && (
+            <KpiTile
+              label="Cobertura de revisão"
+              value={`${pct(coberturaRevisao)}%`}
+              tone={coberturaRevisao < 1 ? "warning" : "success"}
+              href="/caixa-de-entrada"
+            />
+          )}
+        </KpiStrip>
+      </Card>
+
+      <Card>
+        <CardHeader title="Matriz plano × realizado" count={matriz.length} />
+        <MatrizControleTable matriz={matriz} mesFoco={mesFoco} />
+      </Card>
+
+      <SinaisParaDecidir sinais={sinais} mesFoco={mesFoco} />
+    </div>
+  );
+}
+
+function MatrizControleTable({ matriz, mesFoco }: { matriz: LinhaMatriz[]; mesFoco: string }) {
+  if (matriz.length === 0) {
+    return <p className="text-base text-text-muted">Sem categorias no plano nem gasto decidido neste mês.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border-subtle text-left text-text-muted">
+            <th className="py-1.5 pr-2">Categoria</th>
+            <th className="py-1.5 pr-2 text-right">Planejado</th>
+            <th className="py-1.5 pr-2 text-right">Realizado</th>
+            <th className="py-1.5 pr-2 text-right">Desvio</th>
+            <th className="py-1.5 pr-2">Tendência</th>
+            <th className="py-1.5 pr-2">Natureza</th>
+            <th className="py-1.5 pr-2">Situação</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border-subtle">
+          {matriz.map((l) => (
+            <tr key={l.categoriaId}>
+              <td className="py-2 pr-2">
+                <Link href={`/historico?categoriaId=${l.categoriaId}&competenciaMes=${mesFoco}`} className="text-text-primary hover:underline">
+                  {l.categoriaRotulo}
+                </Link>
+              </td>
+              <td className="py-2 pr-2 text-right font-mono-nums text-text-secondary">
+                {l.planejado !== null ? formatBRL(l.planejado) : "—"}
+              </td>
+              <td className="py-2 pr-2 text-right font-mono-nums text-text-primary">{formatBRL(l.realizado)}</td>
+              <td className="py-2 pr-2 text-right font-mono-nums">
+                {l.desvioReais !== null ? (
+                  <span className={l.desvioReais > 0 ? "text-terra" : "text-green"}>
+                    {l.desvioReais > 0 ? "+" : ""}
+                    {formatBRL(l.desvioReais)}
+                    {l.desvioPercentual !== null && ` (${l.desvioPercentual > 0 ? "+" : ""}${Math.round(l.desvioPercentual * 100)}%)`}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="py-2 pr-2 text-text-secondary">{tendenciaTexto(l.tendencia)}</td>
+              <td className="py-2 pr-2 text-text-secondary">{l.natureza ? NATUREZA_ROTULOS[l.natureza] : "—"}</td>
+              <td className="py-2 pr-2">
+                <Badge tone={SITUACAO_INFO[l.situacao].tone}>{SITUACAO_INFO[l.situacao].rotulo}</Badge>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SinaisParaDecidir({ sinais, mesFoco }: { sinais: SinalPriorizado[]; mesFoco: string }) {
+  return (
+    <Card>
+      <CardHeader title="Sinais para decidir" count={sinais.length} />
+      {sinais.length === 0 ? (
+        <p className="text-base text-text-muted">
+          Nenhum sinal relevante este mês — nenhuma categoria ajustável saiu do plano de forma material.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {sinais.map((s) => (
+            <li key={s.categoriaId} className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border-subtle p-3">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-base text-text-primary">{s.categoriaRotulo}</span>
+                <span className="text-sm text-text-secondary">{s.porque}</span>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="font-mono-nums text-base text-terra">{formatBRL(s.impactoReais)}</span>
+                <Link href={`/historico?categoriaId=${s.categoriaId}&competenciaMes=${mesFoco}`}>
+                  <Button variant="secondary" size="sm">
+                    Ver lançamentos
+                  </Button>
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

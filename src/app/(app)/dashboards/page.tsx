@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { carregarPainelControle, type FiltroPeriodoPainel } from "@/lib/dashboards/consulta";
-import { mesesAnteriores } from "@/lib/data/competencia";
+import { montarMatrizControle } from "@/lib/dashboards/matriz";
+import { priorizarSinais } from "@/lib/dashboards/sinais";
+import { carregarPlanoMensal } from "@/lib/plano/consulta";
+import { calcularProjecao } from "@/lib/metas/projecao";
+import { diasDecorridosNoMes, mesesAnteriores } from "@/lib/data/competencia";
 import { carregarCompetencias, carregarUltimaAtualizacaoCompetencia } from "@/lib/competencias/consulta";
 import { DashboardScreen, type PresetPeriodo } from "@/components/domain/dashboards/DashboardScreen";
 
@@ -89,12 +93,60 @@ export default async function DashboardsPage({ searchParams }: { searchParams: P
     }
   }
 
+  // Fase 9 (Auditoria V2): "Painel do mês" é sempre ancorado a UM mês — o mais
+  // recente dentro do período selecionado (ou o mês corrente, quando o período
+  // é "Personalizado" por datas) — independente do range multi-mês que
+  // Composição/Evolução podem estar mostrando.
+  const mesFoco = periodo.tipo === "competencias" ? periodo.meses[0] : mesAtualIso();
+  const [mesAnt1, mesAnt2] = mesesAnteriores(mesFoco, 2);
+
+  async function carregarMatrizDoMes(mes: string) {
+    const [painelMes, plano] = await Promise.all([
+      carregarPainelControle({ periodo: { tipo: "competencias", meses: [mes] }, objetivoId }),
+      carregarPlanoMensal(mes),
+    ]);
+    return { painelMes, plano, matriz: montarMatrizControle(painelMes, plano) };
+  }
+
+  const [dadosMesFoco, dadosAnt1, dadosAnt2] = await Promise.all([
+    carregarMatrizDoMes(mesFoco),
+    carregarMatrizDoMes(mesAnt1),
+    carregarMatrizDoMes(mesAnt2),
+  ]);
+
+  const recorrenciaMesesAnteriores = new Map<string, number>();
+  for (const dados of [dadosAnt1, dadosAnt2]) {
+    for (const linha of dados.matriz) {
+      if (linha.situacao === "atencao" || linha.situacao === "excedido") {
+        recorrenciaMesesAnteriores.set(linha.categoriaId, (recorrenciaMesesAnteriores.get(linha.categoriaId) ?? 0) + 1);
+      }
+    }
+  }
+  const sinais = priorizarSinais(dadosMesFoco.matriz, recorrenciaMesesAnteriores);
+
+  const diasMesFoco = diasDecorridosNoMes(mesFoco, new Date());
+  const projecao = diasMesFoco ? calcularProjecao(dadosMesFoco.painelMes.total, diasMesFoco.decorridos, diasMesFoco.total) : null;
+
+  const competenciaFoco = competencias.find((c) => c.competencia.mesReferencia === mesFoco);
+  const coberturaRevisao =
+    competenciaFoco && competenciaFoco.totalLancamentos > 0
+      ? (competenciaFoco.totalLancamentos - competenciaFoco.lancamentosPendentes) / competenciaFoco.totalLancamentos
+      : null;
+
   return (
     <DashboardScreen
       painel={painel}
       objetivos={objetivos}
       filtrosAtuais={{ preset, dataInicio, dataFim, mes, objetivoId }}
       competenciaUnica={competenciaUnica}
+      mesFoco={mesFoco}
+      painelMesFoco={dadosMesFoco.painelMes}
+      plano={dadosMesFoco.plano}
+      matriz={dadosMesFoco.matriz}
+      sinais={sinais}
+      mesAnteriorTotal={dadosAnt1.painelMes.total}
+      projecao={projecao}
+      coberturaRevisao={coberturaRevisao}
     />
   );
 }
