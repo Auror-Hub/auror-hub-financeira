@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { montarRegistros } from "./atualizar-ipca";
+import { montarRegistros } from "../atualizar-ipca";
 
 describe("montarRegistros", () => {
   it("agrupa variação mensal e 12m da mesma categoria/período num único registro", () => {
