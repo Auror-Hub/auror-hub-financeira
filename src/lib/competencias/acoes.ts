@@ -7,6 +7,9 @@ import { reabrirCompetenciaInterno, registrarAuditoriaCompetencia } from "./reab
 import { gerarInsights } from "@/lib/analise/motor";
 import { carregarInsightsDaCompetencia } from "@/lib/analise/consulta";
 import { gerarRelatorio } from "@/lib/relatorios/narrador";
+import type { PacoteDadosRelatorio } from "@/lib/relatorios/orquestrador";
+import { carregarMetas } from "@/lib/metas/consulta";
+import { carregarPlanoMensal } from "@/lib/plano/consulta";
 
 /**
  * Fecha a competência: bloqueia se houver lançamento sem decisão registrada
@@ -135,14 +138,51 @@ export async function fecharCompetencia(competenciaId: string): Promise<void> {
     console.error("Falha ao gerar insights (Fase 6):", e);
   }
 
-  // Agente Narrador (Fase 7) — mesma disciplina best-effort do Analista.
+  // Agente Narrador (Fase 7, reestruturado na Fase 10) — mesma disciplina best-effort do Analista.
   try {
     const { insights, recomendacoes } = await carregarInsightsDaCompetencia(competenciaId);
     const { data: familiaRow } = await supabase.from("familias").select("nome").eq("id", perfilId).single();
     const nomeFamilia = (familiaRow?.nome as string | undefined) ?? "a família";
-    await gerarRelatorio(supabase, competenciaId, competencia.mes_referencia as string, snapshot.id as string, dadosCongelados, insights, recomendacoes, nomeFamilia);
+
+    const [metas, plano, { data: competenciaAnterior }] = await Promise.all([
+      carregarMetas(),
+      carregarPlanoMensal(competencia.mes_referencia as string),
+      supabase
+        .from("competencias")
+        .select("id")
+        .eq("perfil_id", perfilId)
+        .in("estado", ["fechada", "reaberta"])
+        .neq("id", competenciaId)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const coberturaClassificacao = idsLancamentos.length > 0 ? decisaoVigentePorLancamento.size / idsLancamentos.length : 0;
+    const pacote: PacoteDadosRelatorio = {
+      totalLancamentos: dadosCongelados.totalLancamentos,
+      coberturaClassificacao,
+      temInsightDeVariacaoCategoria: insights.some((i) => i.tipo === "variacao_categoria"),
+      existeCompetenciaAnteriorFechada: competenciaAnterior !== null,
+      rendaInformada: plano.rendaInformada,
+      // Fase 12 (perfil financeiro/consentimento) ainda não existe no schema — sempre inelegível até então.
+      consentimentoComparacaoExterna: false,
+    };
+
+    await gerarRelatorio(
+      supabase,
+      competenciaId,
+      competencia.mes_referencia as string,
+      snapshot.id as string,
+      dadosCongelados,
+      insights,
+      recomendacoes,
+      nomeFamilia,
+      pacote,
+      metas,
+      { totalPlanejado: plano.total, naoAlocado: plano.naoAlocado },
+    );
   } catch (e) {
-    console.error("Falha ao gerar relatório (Fase 7):", e);
+    console.error("Falha ao gerar relatório (Fase 7/10):", e);
   }
 
   revalidatePath("/competencias");

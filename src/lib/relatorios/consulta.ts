@@ -1,5 +1,6 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import type { SecaoRelatorio } from "./narrador";
 
 export type StatusRelatorioVersao = "vigente" | "superseded";
 
@@ -60,6 +61,8 @@ export async function carregarRelatorios(): Promise<RelatorioResumo[]> {
 
 export interface RelatorioVersaoDetalhe extends RelatorioResumo {
   conteudoHtml: string;
+  /** Fase 10 (Auditoria V2) — null para relatórios gerados antes desta fase (fallback pro iframe com `conteudoHtml`). */
+  secoesEstruturadas: SecaoRelatorio[] | null;
   metodologia: string;
 }
 
@@ -69,7 +72,7 @@ export async function carregarRelatorioVersao(versaoId: string): Promise<Relator
 
   const { data: versao, error: errVersao } = await supabase
     .from("relatorio_versoes")
-    .select("id, relatorio_id, versao, status, conteudo_html, metodologia, criado_em")
+    .select("id, relatorio_id, versao, status, conteudo_html, secoes_estruturadas, metodologia, criado_em")
     .eq("id", versaoId)
     .maybeSingle();
   if (errVersao) throw new Error("Falha ao carregar versão do relatório: " + errVersao.message);
@@ -96,6 +99,7 @@ export async function carregarRelatorioVersao(versaoId: string): Promise<Relator
     versao: versao.versao as number,
     status: versao.status as StatusRelatorioVersao,
     conteudoHtml: versao.conteudo_html as string,
+    secoesEstruturadas: (versao.secoes_estruturadas as SecaoRelatorio[] | null) ?? null,
     metodologia: versao.metodologia as string,
     criadoEm: versao.criado_em as string,
   };
