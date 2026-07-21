@@ -18,6 +18,8 @@ export function TopBar() {
       </span>
       <div className="flex items-center gap-3">
         <span className="eyebrow">{session.profileName}</span>
+        {/* Fase 7 (Auditoria V2): mantém text-xs — inicial única dentro de um avatar
+            de 26px, dimensionado ao círculo, nunca lido como conteúdo textual. */}
         <div
           aria-hidden
           className="flex h-[26px] w-[26px] items-center justify-center rounded-avatar bg-slate-tint text-xs font-semibold text-slate"

@@ -21,7 +21,9 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-[26px] rounded-btn-sm px-2.5 text-xs gap-1",
+  // Rearquitetura (Fase 7, Auditoria V2): 26px ficava abaixo de alvo de toque
+  // confortável (~32px mínimo) — usado em quase toda ação secundária do app.
+  sm: "h-[32px] rounded-btn-sm px-2.5 text-sm gap-1",
   md: "h-8 rounded-btn px-3.5 text-base gap-1.5",
 };
 

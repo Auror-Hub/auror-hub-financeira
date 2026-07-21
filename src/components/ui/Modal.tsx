@@ -47,7 +47,7 @@ export function Modal({ open, onClose, title, children, footer, width = 440 }: M
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="relative flex max-h-[85vh] flex-col rounded-card bg-surface-primary shadow-[var(--shadow-overlay)] outline-none"
+        className="relative flex max-h-[85vh] max-w-[calc(100vw-24px)] flex-col rounded-card bg-surface-primary shadow-[var(--shadow-overlay)] outline-none"
         style={{ width }}
       >
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
@@ -55,7 +55,7 @@ export function Modal({ open, onClose, title, children, footer, width = 440 }: M
           <button
             aria-label="Fechar"
             onClick={onClose}
-            className="rounded-icon p-1.5 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary"
+            className="rounded-icon p-2 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary"
           >
             <X size={18} strokeWidth={1.75} />
           </button>

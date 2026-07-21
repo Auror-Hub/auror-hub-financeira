@@ -248,7 +248,7 @@ export function LancamentoEditModal({
           </label>
         </div>
 
-        <p className="text-xs text-text-muted">
+        <p className="text-sm text-text-muted">
           Editar valor, data, competência, fornecedor, descrição ou fonte cria uma nova versão do lançamento — a original é
           preservada na auditoria (nunca é apagada). Mudar a competência move o lançamento de mês.
         </p>

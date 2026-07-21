@@ -49,7 +49,7 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          "relative flex h-full flex-col bg-surface-primary shadow-[var(--shadow-overlay)] outline-none",
+          "relative flex h-full max-w-[calc(100vw-24px)] flex-col bg-surface-primary shadow-[var(--shadow-overlay)] outline-none",
           "animate-[drawer-in_var(--dur-slow)_var(--ease-settle)]",
         )}
         style={{ width }}
@@ -62,7 +62,7 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
           <button
             aria-label="Fechar"
             onClick={onClose}
-            className="rounded-icon p-1.5 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary"
+            className="rounded-icon p-2 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary"
           >
             <X size={18} strokeWidth={1.75} />
           </button>

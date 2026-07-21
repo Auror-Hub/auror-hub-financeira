@@ -31,7 +31,7 @@ export function NavRail() {
   return (
     <nav
       aria-label="Navegação principal"
-      className="row-span-3 flex w-[var(--sidebar-width)] flex-col items-center gap-1 border-r border-border-subtle bg-surface-primary py-2"
+      className="hidden row-span-3 w-[var(--sidebar-width)] flex-col items-center gap-1 border-r border-border-subtle bg-surface-primary py-2 sm:flex"
     >
       <div
         aria-hidden

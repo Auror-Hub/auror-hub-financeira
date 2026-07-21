@@ -47,7 +47,7 @@ export function ReviewCard({ item, rotulos, onAbrir, onConfirmar }: ReviewCardPr
           {categoria && <Badge tone="slate">{categoria}</Badge>}
           {objetivo && <Badge tone="slate">{objetivo}</Badge>}
           {item.grupoLoteId && (
-            <span className="flex items-center gap-1 text-xs text-text-muted">
+            <span className="flex items-center gap-1 text-sm text-text-muted">
               <Layers size={12} strokeWidth={1.75} />
               Grupo semelhante
             </span>
@@ -70,13 +70,13 @@ export function ReviewCard({ item, rotulos, onAbrir, onConfirmar }: ReviewCardPr
         <div className="flex items-center gap-2">
           <button
             onClick={onConfirmar}
-            className="rounded-btn-sm bg-state-success px-2.5 py-1 text-xs font-medium text-white transition-colors hover:brightness-110"
+            className="rounded-btn-sm bg-state-success px-2.5 py-2 text-sm font-medium text-white transition-colors hover:brightness-110"
           >
             Confirmar
           </button>
           <button
             onClick={onAbrir}
-            className="rounded-btn-sm border border-border-default px-2.5 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-surface-secondary"
+            className="rounded-btn-sm border border-border-default px-2.5 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary"
           >
             Abrir
           </button>

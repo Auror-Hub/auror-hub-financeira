@@ -430,7 +430,7 @@ function CategoriaBar({
             <span className="w-10 shrink-0 text-right font-mono-nums text-sm text-text-muted">{pct(categoria.percentualDoTotal)}%</span>
             {variacao !== null && Math.abs(variacao) >= 0.01 && (
               <span
-                className={`flex w-14 shrink-0 items-center justify-end gap-0.5 font-mono-nums text-xs ${variacao > 0 ? "text-terra" : "text-green"}`}
+                className={`flex w-14 shrink-0 items-center justify-end gap-0.5 font-mono-nums text-sm ${variacao > 0 ? "text-terra" : "text-green"}`}
               >
                 {variacao > 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
                 {Math.abs(pct(variacao))}%
@@ -519,17 +519,28 @@ function EvolucaoEObjetivo({ painel }: { painel: PainelControle }) {
       <Card>
         <CardHeader title="Evolução mensal" />
         {painel.porMes.length > 0 ? (
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dadosMes}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="mesRotulo" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatBRL(v)} width={80} />
-                <Tooltip formatter={(value) => formatBRL(Number(value))} />
-                <Line type="monotone" dataKey="total" stroke="#2da870" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <>
+            <div className="h-56" aria-label={`Gráfico de linha — total gasto por mês, de ${formatCompetencia(dadosMes[0].mes)} a ${formatCompetencia(dadosMes[dadosMes.length - 1].mes)}`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dadosMes}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="mesRotulo" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatBRL(v)} width={80} />
+                  <Tooltip formatter={(value) => formatBRL(Number(value))} />
+                  <Line type="monotone" dataKey="total" stroke="#2da870" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Fase 7 (Auditoria V2): equivalente textual do gráfico — mesmo dado, sem depender de leitura visual da curva. */}
+            <ul className="mt-3 flex flex-col divide-y divide-border-subtle text-sm text-text-secondary">
+              {dadosMes.map((p) => (
+                <li key={p.mes} className="flex items-center justify-between py-1">
+                  <span>{p.mesRotulo}</span>
+                  <span className="font-mono-nums text-text-primary">{formatBRL(p.total)}</span>
+                </li>
+              ))}
+            </ul>
+          </>
         ) : (
           <p className="text-base text-text-muted">Sem dados no período.</p>
         )}
@@ -539,17 +550,28 @@ function EvolucaoEObjetivo({ painel }: { painel: PainelControle }) {
       <Card>
         <CardHeader title="Por objetivo" />
         {painel.porObjetivo.length > 0 ? (
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={painel.porObjetivo}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="objetivoRotulo" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatBRL(v)} width={80} />
-                <Tooltip formatter={(value) => formatBRL(Number(value))} />
-                <Bar dataKey="total" fill="#4a6cf7" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <>
+            <div className="h-56" aria-label="Gráfico de barras — total gasto por objetivo no período">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={painel.porObjetivo}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="objetivoRotulo" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatBRL(v)} width={80} />
+                  <Tooltip formatter={(value) => formatBRL(Number(value))} />
+                  <Bar dataKey="total" fill="#4a6cf7" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Fase 7 (Auditoria V2): equivalente textual do gráfico. */}
+            <ul className="mt-3 flex flex-col divide-y divide-border-subtle text-sm text-text-secondary">
+              {painel.porObjetivo.map((o) => (
+                <li key={o.objetivoId} className="flex items-center justify-between py-1">
+                  <span>{o.objetivoRotulo}</span>
+                  <span className="font-mono-nums text-text-primary">{formatBRL(o.total)}</span>
+                </li>
+              ))}
+            </ul>
+          </>
         ) : (
           <p className="text-base text-text-muted">Sem dados no período.</p>
         )}

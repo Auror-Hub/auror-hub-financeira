@@ -257,7 +257,7 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
               onChange={(e) => setCompetenciaFatura(e.target.value)}
               className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
             />
-            <span className="text-xs text-text-muted">
+            <span className="text-sm text-text-muted">
               Mês de fechamento desta fatura — todo lançamento do arquivo entra nesta competência, mesmo parcelas com data de compra
               de meses anteriores.
             </span>

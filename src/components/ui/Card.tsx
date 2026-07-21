@@ -44,6 +44,8 @@ export function CardHeader({ title, count, action }: CardHeaderProps) {
     <div className="mb-3 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className="eyebrow">{title}</span>
+        {/* Fase 7 (Auditoria V2): mantém text-xs — contador pareado ao título
+            eyebrow (mesmo tamanho, mesma hierarquia visual secundária). */}
         {count !== undefined && (
           <span className="font-mono-nums text-xs text-text-muted">{count}</span>
         )}

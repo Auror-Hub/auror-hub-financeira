@@ -2,21 +2,39 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { History } from "lucide-react";
-import type { HistoricoPaginado } from "@/lib/historico/consulta";
+import { History, ChevronDown, ChevronUp } from "lucide-react";
+import type { HistoricoPaginado, StatusDecisaoHistorico } from "@/lib/historico/consulta";
 import { formatCompetencia } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { HistoryRow } from "./HistoryRow";
 
+const STATUS_ROTULO: Record<StatusDecisaoHistorico, string> = {
+  confirmada: "Confirmada",
+  corrigida: "Corrigida",
+  "exceção": "Exceção",
+};
+
 export interface HistoryListScreenProps {
   resultado: HistoricoPaginado;
   categorias: { id: string; rotulo: string }[];
   subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
+  cartoes: { id: string; rotulo: string; tipo: "cartao" | "conta" }[];
   competencias: string[];
-  filtrosAtuais: { categoriaId?: string; fornecedor?: string; dataInicio?: string; dataFim?: string; competenciaMes?: string };
+  filtrosAtuais: {
+    categoriaId?: string;
+    fornecedor?: string;
+    dataInicio?: string;
+    dataFim?: string;
+    competenciaMes?: string;
+    objetivoId?: string;
+    cartaoId?: string;
+    statusDecisao?: StatusDecisaoHistorico;
+    valorMin?: string;
+    valorMax?: string;
+  };
 }
 
 /** Ajuste D (brainstorm 2026-07-15) — lista plana de lançamentos já decididos, filtrável e editável inline. */
@@ -25,6 +43,7 @@ export function HistoryListScreen({
   categorias,
   subcategoriasPorCategoria,
   objetivos,
+  cartoes,
   competencias,
   filtrosAtuais,
 }: HistoryListScreenProps) {
@@ -34,6 +53,16 @@ export function HistoryListScreen({
   const [dataInicio, setDataInicio] = useState(filtrosAtuais.dataInicio ?? "");
   const [dataFim, setDataFim] = useState(filtrosAtuais.dataFim ?? "");
   const [competenciaMes, setCompetenciaMes] = useState(filtrosAtuais.competenciaMes ?? "");
+  // Fase 7 (Auditoria V2): filtros adicionais — colapsados por padrão pra não
+  // quebrar o layout em telas estreitas com uma linha só de selects.
+  const [maisFiltrosAbertos, setMaisFiltrosAbertos] = useState(
+    Boolean(filtrosAtuais.objetivoId || filtrosAtuais.cartaoId || filtrosAtuais.statusDecisao || filtrosAtuais.valorMin || filtrosAtuais.valorMax),
+  );
+  const [objetivoId, setObjetivoId] = useState(filtrosAtuais.objetivoId ?? "");
+  const [cartaoId, setCartaoId] = useState(filtrosAtuais.cartaoId ?? "");
+  const [statusDecisao, setStatusDecisao] = useState<StatusDecisaoHistorico | "">(filtrosAtuais.statusDecisao ?? "");
+  const [valorMin, setValorMin] = useState(filtrosAtuais.valorMin ?? "");
+  const [valorMax, setValorMax] = useState(filtrosAtuais.valorMax ?? "");
 
   function montarParams(pagina?: number) {
     const params = new URLSearchParams();
@@ -42,6 +71,11 @@ export function HistoryListScreen({
     if (dataInicio) params.set("dataInicio", dataInicio);
     if (dataFim) params.set("dataFim", dataFim);
     if (competenciaMes) params.set("competenciaMes", competenciaMes);
+    if (objetivoId) params.set("objetivoId", objetivoId);
+    if (cartaoId) params.set("cartaoId", cartaoId);
+    if (statusDecisao) params.set("statusDecisao", statusDecisao);
+    if (valorMin) params.set("valorMin", valorMin);
+    if (valorMax) params.set("valorMax", valorMax);
     if (pagina) params.set("pagina", String(pagina));
     return params;
   }
@@ -108,7 +142,76 @@ export function HistoryListScreen({
         <Button variant="primary" size="sm" onClick={aplicarFiltros}>
           Aplicar filtros
         </Button>
+        <button
+          type="button"
+          onClick={() => setMaisFiltrosAbertos((v) => !v)}
+          className="flex items-center gap-1 text-sm text-action-primary hover:underline"
+        >
+          Mais filtros
+          {maisFiltrosAbertos ? <ChevronUp size={14} strokeWidth={1.75} /> : <ChevronDown size={14} strokeWidth={1.75} />}
+        </button>
       </Card>
+
+      {maisFiltrosAbertos && (
+        <Card className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            Objetivo
+            <select
+              value={objetivoId}
+              onChange={(e) => setObjetivoId(e.target.value)}
+              className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+            >
+              <option value="">Todos</option>
+              {objetivos.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            Conta/cartão
+            <select
+              value={cartaoId}
+              onChange={(e) => setCartaoId(e.target.value)}
+              className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+            >
+              <option value="">Todas</option>
+              {cartoes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.rotulo} ({c.tipo === "conta" ? "conta" : "cartão"})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            Status da decisão
+            <select
+              value={statusDecisao}
+              onChange={(e) => setStatusDecisao(e.target.value as StatusDecisaoHistorico | "")}
+              className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
+            >
+              <option value="">Todos</option>
+              {Object.entries(STATUS_ROTULO).map(([valor, rotulo]) => (
+                <option key={valor} value={valor}>
+                  {rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            Valor de (R$)
+            <Input type="number" min="0" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} className="h-[34px] w-28" />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            Valor até (R$)
+            <Input type="number" min="0" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} className="h-[34px] w-28" />
+          </label>
+          <Button variant="primary" size="sm" onClick={aplicarFiltros}>
+            Aplicar filtros
+          </Button>
+        </Card>
+      )}
 
       <Card>
         <ul className="flex flex-col">

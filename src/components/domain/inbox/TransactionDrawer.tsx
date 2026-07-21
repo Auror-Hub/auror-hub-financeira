@@ -122,7 +122,7 @@ export function TransactionDrawer({
               onClick={onAnterior}
               disabled={!onAnterior}
               title="Item anterior da fila"
-              className="rounded-btn-sm p-1.5 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary disabled:opacity-30"
+              className="rounded-btn-sm p-2 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary disabled:opacity-30"
             >
               <ChevronLeft size={18} strokeWidth={1.75} />
             </button>
@@ -130,7 +130,7 @@ export function TransactionDrawer({
               onClick={onProximo}
               disabled={!onProximo}
               title="Próximo item da fila"
-              className="rounded-btn-sm p-1.5 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary disabled:opacity-30"
+              className="rounded-btn-sm p-2 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary disabled:opacity-30"
             >
               <ChevronRight size={18} strokeWidth={1.75} />
             </button>

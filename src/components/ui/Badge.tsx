@@ -22,7 +22,7 @@ export function Badge({ children, tone = "slate", icon, className }: BadgeProps)
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-sm font-medium",
         toneClasses[tone],
         className,
       )}

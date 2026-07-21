@@ -25,6 +25,20 @@ const PROGRESSO_COR: Record<MetaComProgresso["statusProgresso"], string> = {
   estourada: "bg-state-danger",
 };
 
+// Fase 7 (Auditoria V2): status de progresso só existia como cor da barra —
+// nunca como texto. Rótulo explícito garante que a informação não dependa
+// de distinguir cor (importante pra quem tem baixa visão de cor).
+const PROGRESSO_ROTULO: Record<MetaComProgresso["statusProgresso"], string> = {
+  ok: "Ok",
+  atencao: "Atenção",
+  estourada: "Estourada",
+};
+const PROGRESSO_TEXTO_COR: Record<MetaComProgresso["statusProgresso"], string> = {
+  ok: "text-state-success",
+  atencao: "text-state-warning",
+  estourada: "text-state-danger",
+};
+
 const ROTULO_META_GERAL = "Orçamento geral (todas as categorias)";
 const PERIODO_ROTULO: Record<number, string> = { 1: "mês anterior", 3: "últimos 3 meses", 6: "últimos 6 meses", 12: "últimos 12 meses" };
 
@@ -256,7 +270,7 @@ export function MetaListScreen({ metas, categorias, subcategoriasPorCategoria, o
           )}
 
           {metaEditando && (
-            <p className="text-xs text-text-muted">
+            <p className="text-sm text-text-muted">
               Salvar cria uma nova versão da meta — a atual fica inativa no histórico.
             </p>
           )}
@@ -288,7 +302,7 @@ function MetaCard({
             {formatBRL(meta.gastoAtual)} de {formatBRL(meta.valorLimiteEfetivo)} · {Math.round(meta.percentual * 100)}%
           </span>
           {meta.tipo === "reducao_percentual" && meta.baselineMedia !== null && (
-            <span className="text-xs text-text-muted">
+            <span className="text-sm text-text-muted">
               Meta: {Math.round((meta.percentualAlvo ?? 0) * 100)}% de redução vs. {PERIODO_ROTULO[meta.periodoMeses ?? 1]} (média de{" "}
               {formatBRL(meta.baselineMedia)})
             </span>
@@ -315,6 +329,9 @@ function MetaCard({
       <div className="mt-2 h-2 overflow-hidden rounded-pill bg-surface-secondary">
         <div className={`h-full rounded-pill ${PROGRESSO_COR[meta.statusProgresso]}`} style={{ width: `${larguraBarra}%` }} />
       </div>
+      <span className={`mt-1 block text-sm font-medium ${PROGRESSO_TEXTO_COR[meta.statusProgresso]}`}>
+        {PROGRESSO_ROTULO[meta.statusProgresso]} · {Math.round(meta.percentual * 100)}%
+      </span>
     </Card>
   );
 }

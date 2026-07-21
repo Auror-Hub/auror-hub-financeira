@@ -21,6 +21,8 @@ export function SuggestionBlock({ proposta, rotulos }: { proposta: PropostaClass
     <div className="flex flex-col gap-3 rounded-card border border-suggestion-border/40 bg-suggestion-tint p-4">
       <div className="flex items-center justify-between">
         <span className="eyebrow text-slate">Sugestão da IA</span>
+        {/* Fase 7 (Auditoria V2): mantém text-xs — versão do classificador é
+            metadado técnico de auditoria, não conteúdo que alguém precisa ler. */}
         <span className="font-mono-nums text-xs text-text-muted">{proposta.versaoClassificador}</span>
       </div>
 
