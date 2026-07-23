@@ -20,6 +20,7 @@ function painelCom(categorias: CategoriaBreakdown[]): PainelControle {
   return {
     periodo: { rotulo: "Julho de 2026" },
     total: categorias.reduce((s, c) => s + c.total, 0),
+    creditos: 0,
     totalLancamentos: categorias.length,
     ticketMedio: 0,
     comparacao: null,

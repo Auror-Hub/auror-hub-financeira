@@ -6,6 +6,7 @@ import { carregarRelatorios } from "@/lib/relatorios/consulta";
 import { variacaoPercentual } from "@/lib/analise/motor";
 import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { carregarLancamentosComCategoria } from "@/lib/lancamentos/porCategoria";
+import { agregarLancamentos, agregarPorChave } from "@/lib/lancamentos/agregador";
 import { carregarMetas } from "@/lib/metas/consulta";
 import { gerarAlerta } from "@/lib/metas/avaliacao";
 import { carregarPlanoMensal } from "@/lib/plano/consulta";
@@ -45,6 +46,8 @@ export interface ResumoHome {
   totalAnalisado: Centavos;
   quantidadeLancamentos: number;
   itensAguardandoRevisao: number;
+  /** Créditos/estornos da competência atual (Fase 14, Auditoria V3.1) — já reduzidos do totalAnalisado, exposto separado pra futura exibição (Fases 18/22). */
+  creditosEstornos: Centavos;
   /** Fração vs. média das até 3 competências fechadas anteriores. null = sem histórico suficiente pra comparar. */
   variacaoVsMedia: number | null;
   /** Soma de `plano_linhas` do mês atual (Fase 8, Auditoria V2). null = sem plano feito ainda, nunca soma de `metas`. */
@@ -150,21 +153,30 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     carregarLancamentosComCategoria(supabase, cartaoIds, mesesAnteriores, inativos),
   ]);
 
+  // Fase 14 (Auditoria V3.1): "despesa extraordinária" compara o TAMANHO de um
+  // lançamento individual à média histórica de despesa da categoria — um
+  // crédito/estorno nunca é uma despesa extraordinária, então essas duas listas
+  // (despesa-only, valor sempre positivo) alimentam só essa heurística.
+  const despesasAnteriores = lancamentosAnteriores.filter((l) => l.valor < 0).map((l) => ({ ...l, valorAbs: -l.valor }));
+  const despesasAtual = lancamentosAtual.filter((l) => l.valor < 0).map((l) => ({ ...l, valorAbs: -l.valor }));
+
   const idsCategorias = new Set<string>();
-  const somaAnteriorPorCategoria = new Map<string, number>();
+  const somaAnteriorDespesaPorCategoria = new Map<string, number>();
   const contagemAnteriorPorCategoria = new Map<string, number>();
-  for (const l of lancamentosAnteriores) {
+  for (const l of despesasAnteriores) {
     if (!l.categoriaId) continue;
     idsCategorias.add(l.categoriaId);
-    somaAnteriorPorCategoria.set(l.categoriaId, (somaAnteriorPorCategoria.get(l.categoriaId) ?? 0) + l.valorAbs);
+    somaAnteriorDespesaPorCategoria.set(l.categoriaId, (somaAnteriorDespesaPorCategoria.get(l.categoriaId) ?? 0) + l.valorAbs);
     contagemAnteriorPorCategoria.set(l.categoriaId, (contagemAnteriorPorCategoria.get(l.categoriaId) ?? 0) + 1);
   }
-  const somaAtualPorCategoria = new Map<string, number>();
-  for (const l of lancamentosAtual) {
-    if (!l.categoriaId) continue;
-    idsCategorias.add(l.categoriaId);
-    somaAtualPorCategoria.set(l.categoriaId, (somaAtualPorCategoria.get(l.categoriaId) ?? 0) + l.valorAbs);
-  }
+
+  // "Categoria pressionada" e a pizza precisam do LÍQUIDO por categoria
+  // (despesas − créditos/estornos daquela categoria) — um reembolso reduz a
+  // pressão real, não deveria contar como se a família tivesse gastado mais.
+  const liquidoAnteriorPorCategoria = agregarPorChave(lancamentosAnteriores, (l) => l.categoriaId);
+  const liquidoAtualPorCategoria = agregarPorChave(lancamentosAtual, (l) => l.categoriaId);
+  for (const categoriaId of liquidoAnteriorPorCategoria.keys()) idsCategorias.add(categoriaId);
+  for (const categoriaId of liquidoAtualPorCategoria.keys()) idsCategorias.add(categoriaId);
 
   const { data: termosRaw } = await supabase
     .from("taxonomia_termos")
@@ -173,12 +185,12 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
   const rotuloPorCategoria = new Map((termosRaw ?? []).map((t) => [t.id as string, t.rotulo as string]));
 
   const despesasExtraordinarias: DespesaExtraordinaria[] = fechadasAnteriores.length
-    ? lancamentosAtual
+    ? despesasAtual
         .filter((l) => {
           if (!l.categoriaId) return false;
           const contagem = contagemAnteriorPorCategoria.get(l.categoriaId) ?? 0;
           if (contagem === 0) return false;
-          const mediaLancamento = (somaAnteriorPorCategoria.get(l.categoriaId) ?? 0) / contagem;
+          const mediaLancamento = (somaAnteriorDespesaPorCategoria.get(l.categoriaId) ?? 0) / contagem;
           return mediaLancamento > 0 && l.valorAbs >= mediaLancamento * MULTIPLICADOR_DESPESA_EXTRAORDINARIA;
         })
         .sort((a, b) => b.valorAbs - a.valorAbs)
@@ -193,8 +205,8 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
   const categoriasPressionadas: CategoriaPressionadaHome[] = fechadasAnteriores.length
     ? [...idsCategorias]
         .map((categoriaId) => {
-          const mediaMensal = (somaAnteriorPorCategoria.get(categoriaId) ?? 0) / fechadasAnteriores.length;
-          const totalAtual = somaAtualPorCategoria.get(categoriaId) ?? 0;
+          const mediaMensal = (liquidoAnteriorPorCategoria.get(categoriaId)?.gastoLiquido ?? 0) / fechadasAnteriores.length;
+          const totalAtual = liquidoAtualPorCategoria.get(categoriaId)?.gastoLiquido ?? 0;
           const variacao = mediaMensal > 0 ? variacaoPercentual(totalAtual, mediaMensal) : null;
           return { categoriaId, variacao };
         })
@@ -205,9 +217,11 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
         .map((c) => ({ rotulo: rotuloPorCategoria.get(c.categoriaId) ?? "—", variacao: c.variacao }))
     : [];
 
-  const distribuicaoCategorias = [...somaAtualPorCategoria.entries()]
-    .map(([categoriaId, total]) => ({ rotulo: rotuloPorCategoria.get(categoriaId) ?? "—", total }))
+  const distribuicaoCategorias = [...liquidoAtualPorCategoria.entries()]
+    .map(([categoriaId, agregado]) => ({ rotulo: rotuloPorCategoria.get(categoriaId) ?? "—", total: agregado.gastoLiquido }))
     .sort((a, b) => b.total - a.total);
+
+  const creditosEstornos = agregarLancamentos(lancamentosAtual).creditos;
 
   const alertas: AlertaHome[] = [];
   if (atual.lancamentosPendentes > 0) {
@@ -250,6 +264,7 @@ export async function carregarResumoHome(): Promise<ResumoHome | null> {
     totalAnalisado: atual.totalConsolidado,
     quantidadeLancamentos: atual.totalLancamentos,
     itensAguardandoRevisao: atual.lancamentosPendentes,
+    creditosEstornos,
     variacaoVsMedia,
     planejado,
     restante,

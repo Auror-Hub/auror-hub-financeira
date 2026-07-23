@@ -3,7 +3,8 @@ import type { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 
 export interface LancamentoComCategoria {
   fornecedor: string;
-  valorAbs: number;
+  /** Com sinal — negativo = despesa, positivo = crédito/estorno (Fase 14, Auditoria V3.1). */
+  valor: number;
   categoriaId: string | null;
   subcategoriaId: string | null;
   objetivoId: string | null;
@@ -13,7 +14,10 @@ export interface LancamentoComCategoria {
  * Lançamentos de uma ou mais competências (por `competencia_calculada`, nunca
  * intervalo de datas — competência pode divergir da data do lançamento) com a
  * categoria/subcategoria/objetivo da decisão vigente resolvidos. Compartilhado
- * entre Home e Metas (mesma definição de "gasto real do mês").
+ * entre Home e Metas (mesma definição de "gasto real do mês"). Retorna `valor`
+ * com sinal — quem consome decide se precisa de líquido (`agregarLancamentos`)
+ * ou só das despesas (filtrar `valor < 0`); nunca aplicar `Math.abs` aqui, ou
+ * um crédito/estorno vira gasto extra em vez de reduzir o líquido.
  */
 export async function carregarLancamentosComCategoria(
   supabase: Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"],
@@ -53,7 +57,7 @@ export async function carregarLancamentosComCategoria(
     const decisao = decisaoPorLancamento.get(l.id as string);
     return {
       fornecedor: l.fornecedor_original as string,
-      valorAbs: Math.abs(l.valor as number),
+      valor: l.valor as number,
       categoriaId: decisao?.categoriaId ?? null,
       subcategoriaId: decisao?.subcategoriaId ?? null,
       objetivoId: decisao?.objetivoId ?? null,

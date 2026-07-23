@@ -3,6 +3,7 @@ import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarCompetencias } from "@/lib/competencias/consulta";
 import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { carregarLancamentosComCategoria, type LancamentoComCategoria } from "@/lib/lancamentos/porCategoria";
+import { agregarLancamentos } from "@/lib/lancamentos/agregador";
 import { mesesAnteriores } from "@/lib/data/competencia";
 import { avaliarProgresso, type StatusProgressoMeta } from "./avaliacao";
 
@@ -52,8 +53,9 @@ function correspondeMeta(l: LancamentoComCategoria, meta: MetaRaw): boolean {
   return true;
 }
 
+/** Gasto líquido (despesas − créditos/estornos) do escopo da meta — Fase 14, Auditoria V3.1. */
 function somaFiltrada(lancamentos: LancamentoComCategoria[], meta: MetaRaw): number {
-  return lancamentos.filter((l) => correspondeMeta(l, meta)).reduce((soma, l) => soma + l.valorAbs, 0);
+  return agregarLancamentos(lancamentos.filter((l) => correspondeMeta(l, meta))).gastoLiquido;
 }
 
 /**

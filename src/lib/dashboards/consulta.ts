@@ -1,6 +1,7 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
+import { agregarLancamentos, agregarPorChave } from "@/lib/lancamentos/agregador";
 import { resolverPeriodoEAnterior, type FiltroPeriodoPainel } from "./periodo";
 
 export type { FiltroPeriodoPainel };
@@ -77,9 +78,12 @@ export async function carregarDadosDashboard(filtros: FiltrosDashboard): Promise
     });
   }
 
+  // Fase 14 (Auditoria V3.1): valor SEMPRE com sinal aqui (despesa negativa,
+  // crédito/estorno positivo) — nunca Math.abs por lançamento antes de somar,
+  // ou um crédito vira gasto extra em vez de reduzir o líquido.
   const decididos = lancamentos
     .map((l) => ({
-      valor: Math.abs(l.valor as number),
+      valor: l.valor as number,
       competencia: l.competencia_calculada as string,
       decisao: decisaoVigentePorLancamento.get(l.id as string),
     }))
@@ -89,18 +93,12 @@ export async function carregarDadosDashboard(filtros: FiltrosDashboard): Promise
 
   if (decididos.length === 0) return vazio;
 
-  const totalPeriodo = decididos.reduce((soma, l) => soma + l.valor, 0);
+  const totalPeriodo = agregarLancamentos(decididos).gastoLiquido;
+  const porCategoriaAgregado = agregarPorChave(decididos, (l) => l.decisao?.categoria_id ?? null);
+  const porObjetivoAgregado = agregarPorChave(decididos, (l) => l.decisao?.objetivo_id ?? null);
+  const porMesAgregado = agregarPorChave(decididos, (l) => l.competencia);
 
-  const somaPorCategoria = new Map<string, number>();
-  const somaPorObjetivo = new Map<string, number>();
-  const somaPorMes = new Map<string, number>();
-  for (const l of decididos) {
-    if (l.decisao?.categoria_id) somaPorCategoria.set(l.decisao.categoria_id, (somaPorCategoria.get(l.decisao.categoria_id) ?? 0) + l.valor);
-    if (l.decisao?.objetivo_id) somaPorObjetivo.set(l.decisao.objetivo_id, (somaPorObjetivo.get(l.decisao.objetivo_id) ?? 0) + l.valor);
-    somaPorMes.set(l.competencia, (somaPorMes.get(l.competencia) ?? 0) + l.valor);
-  }
-
-  const idsTermos = new Set<string>([...somaPorCategoria.keys(), ...somaPorObjetivo.keys()]);
+  const idsTermos = new Set<string>([...porCategoriaAgregado.keys(), ...porObjetivoAgregado.keys()]);
   const { data: termosRaw, error: errTermos } = await supabase
     .from("taxonomia_termos")
     .select("id, rotulo")
@@ -108,13 +106,15 @@ export async function carregarDadosDashboard(filtros: FiltrosDashboard): Promise
   if (errTermos) throw new Error("Falha ao carregar taxonomia: " + errTermos.message);
   const rotuloPorTermo = new Map((termosRaw ?? []).map((t) => [t.id as string, t.rotulo as string]));
 
-  const porCategoria = [...somaPorCategoria.entries()]
-    .map(([categoriaId, total]) => ({ categoriaId, categoriaRotulo: rotuloPorTermo.get(categoriaId) ?? "—", total }))
+  const porCategoria = [...porCategoriaAgregado.entries()]
+    .map(([categoriaId, agregado]) => ({ categoriaId, categoriaRotulo: rotuloPorTermo.get(categoriaId) ?? "—", total: agregado.gastoLiquido }))
     .sort((a, b) => b.total - a.total);
-  const porObjetivo = [...somaPorObjetivo.entries()]
-    .map(([objetivoId, total]) => ({ objetivoId, objetivoRotulo: rotuloPorTermo.get(objetivoId) ?? "—", total }))
+  const porObjetivo = [...porObjetivoAgregado.entries()]
+    .map(([objetivoId, agregado]) => ({ objetivoId, objetivoRotulo: rotuloPorTermo.get(objetivoId) ?? "—", total: agregado.gastoLiquido }))
     .sort((a, b) => b.total - a.total);
-  const porMes = [...somaPorMes.entries()].map(([mes, total]) => ({ mes, total })).sort((a, b) => a.mes.localeCompare(b.mes));
+  const porMes = [...porMesAgregado.entries()]
+    .map(([mes, agregado]) => ({ mes, total: agregado.gastoLiquido }))
+    .sort((a, b) => a.mes.localeCompare(b.mes));
 
   return { totalPeriodo, totalLancamentos: decididos.length, porCategoria, porObjetivo, porMes };
 }
@@ -176,6 +176,8 @@ export interface DespesaExtraordinariaDash {
 export interface PainelControle {
   periodo: { rotulo: string };
   total: number;
+  /** Créditos/estornos do período (Fase 14, Auditoria V3.1) — já reduzidos de `total`, exposto separado. */
+  creditos: number;
   totalLancamentos: number;
   ticketMedio: number;
   comparacao: { totalAnterior: number; variacao: number; rotuloAnterior: string } | null;
@@ -187,7 +189,7 @@ export interface PainelControle {
 }
 
 interface ItemDecidido {
-  valor: number; // abs, centavos
+  valor: number; // abs, centavos — SEMPRE despesa (créditos/estornos nunca entram nesta lista)
   competencia: string;
   fornecedor: string;
   categoriaId: string | null;
@@ -196,13 +198,18 @@ interface ItemDecidido {
 }
 
 interface AgregadoPeriodo {
-  total: number;
-  itens: ItemDecidido[];
-  porCategoria: Map<string, number>;
+  total: number; // gasto líquido do período (despesas − créditos), positivo na maioria dos casos
+  creditos: number; // créditos/estornos do período, positivo
+  gastoBruto: number; // soma das despesas, sem net de créditos — base do ticket médio
+  itens: ItemDecidido[]; // só despesas
+  porCategoria: Map<string, number>; // total líquido por categoria (despesas − créditos daquela categoria)
+  porObjetivo: Map<string, number>; // total líquido por objetivo
+  porMes: Map<string, number>; // total líquido por competência
 }
 
 const PAINEL_VAZIO: Omit<PainelControle, "periodo"> = {
   total: 0,
+  creditos: 0,
   totalLancamentos: 0,
   ticketMedio: 0,
   comparacao: null,
@@ -223,7 +230,15 @@ async function agregarPeriodo(
   objetivoId: string | undefined,
   inativos: Set<string>,
 ): Promise<AgregadoPeriodo> {
-  const vazio: AgregadoPeriodo = { total: 0, itens: [], porCategoria: new Map() };
+  const vazio: AgregadoPeriodo = {
+    total: 0,
+    creditos: 0,
+    gastoBruto: 0,
+    itens: [],
+    porCategoria: new Map(),
+    porObjetivo: new Map(),
+    porMes: new Map(),
+  };
 
   let query = supabase.from("lancamentos_brutos").select("id, valor, competencia_calculada, fornecedor_original").in("cartao_id", cartaoIds);
   query =
@@ -252,27 +267,35 @@ async function agregarPeriodo(
     });
   }
 
-  const itens: ItemDecidido[] = [];
-  const porCategoria = new Map<string, number>();
-  let total = 0;
+  // Fase 14 (Auditoria V3.1): despesa (negativo) e crédito/estorno (positivo)
+  // nunca se misturam numa mesma soma abs — `itens` fica só com despesas
+  // (base de subcategoria/fornecedor/extraordinárias); `porCategoria` é o
+  // total LÍQUIDO por categoria (despesas − créditos daquela categoria).
+  const brutos: { valor: number; competencia: string; fornecedor: string; categoriaId: string | null; subcategoriaId: string | null; objetivoId: string | null }[] =
+    [];
   for (const l of lancamentos) {
     const decisao = decisaoPorLancamento.get(l.id as string);
     if (!decisao) continue; // só decididos
     if (objetivoId && decisao.objetivo_id !== objetivoId) continue;
-    const valor = Math.abs(l.valor as number);
-    itens.push({
-      valor,
+    brutos.push({
+      valor: l.valor as number,
       competencia: l.competencia_calculada as string,
       fornecedor: (l.fornecedor_original as string) || "—",
       categoriaId: decisao.categoria_id,
       subcategoriaId: decisao.subcategoria_id,
       objetivoId: decisao.objetivo_id,
     });
-    total += valor;
-    if (decisao.categoria_id) porCategoria.set(decisao.categoria_id, (porCategoria.get(decisao.categoria_id) ?? 0) + valor);
   }
 
-  return { total, itens, porCategoria };
+  const { gastoBruto, creditos, gastoLiquido } = agregarLancamentos(brutos);
+  const itens: ItemDecidido[] = brutos.filter((b) => b.valor < 0).map((b) => ({ ...b, valor: -b.valor }));
+  const liquidoPorMapa = (agregado: Map<string, ReturnType<typeof agregarLancamentos>>) =>
+    new Map([...agregado.entries()].map(([chave, a]) => [chave, a.gastoLiquido]));
+  const porCategoria = liquidoPorMapa(agregarPorChave(brutos, (b) => b.categoriaId));
+  const porObjetivo = liquidoPorMapa(agregarPorChave(brutos, (b) => b.objetivoId));
+  const porMes = liquidoPorMapa(agregarPorChave(brutos, (b) => b.competencia));
+
+  return { total: gastoLiquido, creditos, gastoBruto, itens, porCategoria, porObjetivo, porMes };
 }
 
 export async function carregarPainelControle(filtros: FiltrosPainel): Promise<PainelControle> {
@@ -295,6 +318,8 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
     return {
       periodo,
       ...PAINEL_VAZIO,
+      total: atual.total,
+      creditos: atual.creditos,
       comparacao: anterior.total > 0 ? { totalAnterior: anterior.total, variacao: -1, rotuloAnterior } : null,
     };
   }
@@ -314,7 +339,9 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
 
   const total = atual.total;
   const totalLancamentos = atual.itens.length;
-  const ticketMedio = totalLancamentos > 0 ? Math.round(total / totalLancamentos) : 0;
+  // Ticket médio é o tamanho médio de uma DESPESA (gastoBruto/contagem) — um
+  // crédito/estorno no período não deveria diluir esse número.
+  const ticketMedio = totalLancamentos > 0 ? Math.round(atual.gastoBruto / totalLancamentos) : 0;
 
   // Hierarquia categoria → subcategoria → fornecedores.
   interface AcumCategoria {
@@ -338,13 +365,17 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
 
   const categorias: CategoriaBreakdown[] = [...porCategoria.entries()]
     .map(([categoriaId, acum]) => {
+      // Total exibido é o LÍQUIDO da categoria (despesas − créditos daquela
+      // categoria) — pode divergir da soma bruta das subcategorias/fornecedores
+      // abaixo quando há crédito/estorno atribuído a essa categoria.
+      const totalLiquidoCategoria = atual.porCategoria.get(categoriaId) ?? acum.total;
       const anteriorCat = anterior.porCategoria.get(categoriaId) ?? 0;
-      const variacaoVsAnterior = anteriorCat > 0 ? (acum.total - anteriorCat) / anteriorCat : null;
+      const variacaoVsAnterior = anteriorCat > 0 ? (totalLiquidoCategoria - anteriorCat) / anteriorCat : null;
       return {
         categoriaId,
         rotulo: rotuloPorTermo.get(categoriaId) ?? "—",
-        total: acum.total,
-        percentualDoTotal: total > 0 ? acum.total / total : 0,
+        total: totalLiquidoCategoria,
+        percentualDoTotal: total > 0 ? totalLiquidoCategoria / total : 0,
         variacaoVsAnterior,
         subcategorias: [...acum.subcategorias.entries()]
           .map(([rotulo, subtotal]) => ({
@@ -400,17 +431,11 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
     .sort((a, b) => b.valor - a.valor)
     .slice(0, MAX_EXTRAORDINARIAS);
 
-  // Por objetivo e por mês (mesmo formato do loader antigo).
-  const somaPorObjetivo = new Map<string, number>();
-  const somaPorMes = new Map<string, number>();
-  for (const i of atual.itens) {
-    if (i.objetivoId) somaPorObjetivo.set(i.objetivoId, (somaPorObjetivo.get(i.objetivoId) ?? 0) + i.valor);
-    somaPorMes.set(i.competencia, (somaPorMes.get(i.competencia) ?? 0) + i.valor);
-  }
-  const porObjetivo: PontoObjetivo[] = [...somaPorObjetivo.entries()]
+  // Por objetivo e por mês — total líquido (despesas − créditos), já calculado em agregarPeriodo.
+  const porObjetivo: PontoObjetivo[] = [...atual.porObjetivo.entries()]
     .map(([objetivoId, subtotal]) => ({ objetivoId, objetivoRotulo: rotuloPorTermo.get(objetivoId) ?? "—", total: subtotal }))
     .sort((a, b) => b.total - a.total);
-  const porMes: PontoMensal[] = [...somaPorMes.entries()].map(([mes, subtotal]) => ({ mes, total: subtotal })).sort((a, b) => a.mes.localeCompare(b.mes));
+  const porMes: PontoMensal[] = [...atual.porMes.entries()].map(([mes, subtotal]) => ({ mes, total: subtotal })).sort((a, b) => a.mes.localeCompare(b.mes));
 
   const comparacao =
     anterior.total > 0
@@ -424,6 +449,7 @@ export async function carregarPainelControle(filtros: FiltrosPainel): Promise<Pa
   return {
     periodo,
     total,
+    creditos: atual.creditos,
     totalLancamentos,
     ticketMedio,
     comparacao,
