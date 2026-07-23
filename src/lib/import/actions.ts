@@ -11,6 +11,7 @@ import {
 } from "./parse";
 import { listarAbas, lerMatrizBruta, parseXlsxBruto } from "./parseXlsx";
 import { detectarLinhaCabecalho, detectarMapeamento, type MapeamentoDetectado } from "./deteccao";
+import { resolverExcedenteMulticonjunto } from "./dedup";
 
 function detectarTipoArquivo(nomeArquivo: string): "csv" | "xlsx" {
   return /\.xlsx?$/i.test(nomeArquivo) ? "xlsx" : "csv";
@@ -38,6 +39,46 @@ export async function criarCartao(formData: FormData) {
     tipo,
     ultimos_4_digitos: ultimos4,
   });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/enviar");
+  revalidatePath("/configuracoes");
+}
+
+/**
+ * Fase 15 (Auditoria V3.1) — achado independente da auditoria: até aqui só
+ * existia `criarCartao`, nenhuma forma de corrigir apelido/dígitos/ciclo
+ * depois de cadastrado. Cartão não é dado transacional (RUL-1 não se aplica
+ * — é config, não fato), então é update direto, sem versionamento.
+ */
+export async function editarCartao(cartaoId: string, formData: FormData) {
+  const { supabase } = await perfilDoUsuarioAutenticado();
+
+  const { data: cartao, error: errBusca } = await supabase.from("cartoes").select("id, tipo").eq("id", cartaoId).single();
+  if (errBusca || !cartao) throw new Error("Cartão ou conta não encontrado.");
+
+  const instituicao = String(formData.get("instituicao") ?? "").trim();
+  const apelido = String(formData.get("apelido") ?? "").trim() || null;
+  const ultimos4 = cartao.tipo === "cartao" ? String(formData.get("ultimos4") ?? "").trim() || null : null;
+  const diaFechamentoBruto = String(formData.get("diaFechamento") ?? "").trim();
+  const diaVencimentoBruto = String(formData.get("diaVencimento") ?? "").trim();
+  const diaFechamento = diaFechamentoBruto ? Number.parseInt(diaFechamentoBruto, 10) : null;
+  const diaVencimento = diaVencimentoBruto ? Number.parseInt(diaVencimentoBruto, 10) : null;
+
+  if (!instituicao) throw new Error("Instituição é obrigatória.");
+  if (diaFechamento !== null && (diaFechamento < 1 || diaFechamento > 31)) throw new Error("Dia de fechamento inválido.");
+  if (diaVencimento !== null && (diaVencimento < 1 || diaVencimento > 31)) throw new Error("Dia de vencimento inválido.");
+
+  const { error } = await supabase
+    .from("cartoes")
+    .update({
+      instituicao,
+      apelido,
+      ultimos_4_digitos: ultimos4,
+      dia_fechamento: diaFechamento,
+      dia_vencimento: diaVencimento,
+    })
+    .eq("id", cartaoId);
   if (error) throw new Error(error.message);
 
   revalidatePath("/enviar");
@@ -186,6 +227,9 @@ export interface ProcessarImportacaoResultado {
   linhasValidas: number;
   linhasInvalidas: number;
   pagamentosIgnorados: number;
+  /** Fase 15 (Auditoria V3.1): repetições esperadas (mesma chave de dedup já existente) — não inseridas, não é ambiguidade. */
+  linhasJaExistentes: number;
+  /** Excedente além do histórico conhecido pra uma chave — inserido, mas sinalizado pra revisão (ambiguidade real). */
   duplicatasSinalizadas: number;
   totalExtraido: number;
   colunasNaoReconhecidas: string[];
@@ -315,6 +359,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
   let linhasInvalidas = 0;
   let pagamentosIgnorados = 0;
   let totalExtraido = 0;
+  let linhasJaExistentes = 0;
   let duplicatasSinalizadas = 0;
 
   // Rastreado por coluna (não por linha) pra sinalizar causa estrutural —
@@ -323,6 +368,17 @@ export async function processarImportacao(formData: FormData): Promise<Processar
   let falhasColunaData = 0;
   let tentativasColunaValor = 0;
   let falhasColunaValor = 0;
+
+  interface CandidatoLinha {
+    numeroLinha: number;
+    dataIso: string;
+    descricaoBruta: string;
+    valorCentavos: number;
+    cartaoIdLinha: string;
+    parcelaAtual: number | null;
+    idDedup: string;
+  }
+  const candidatos: CandidatoLinha[] = [];
 
   for (const linha of linhas) {
     const dataBruta = linha.valores[colunaData];
@@ -394,43 +450,76 @@ export async function processarImportacao(formData: FormData): Promise<Processar
       continue;
     }
 
-    // Tópico A (brainstorm 3): a competência é sempre a escolhida no upload
-    // (mês de fechamento da fatura), nunca calculada a partir da data da
-    // linha — resolve parcelas que trazem a data da compra original, não a
-    // data em que aquela parcela específica foi cobrada.
-    const competencia = competenciaFatura;
-    const idDedup = calcularIdentificadorDeduplicacao({
-      data: dataIso,
-      valor: valorCentavos,
-      fornecedorOriginal: descricaoBruta,
-      cartaoId: cartaoIdLinha,
-    });
-
-    const { data: possivelDuplicata } = await supabase
-      .from("lancamentos_brutos")
-      .select("id")
-      .eq("cartao_id", cartaoIdLinha)
-      .eq("identificador_deduplicacao", idDedup)
-      .maybeSingle();
-
     const parcelaBruta = colunaParcela ? linha.valores[colunaParcela] : undefined;
     const parcelaAtual = parcelaBruta ? Number.parseInt(parcelaBruta, 10) : null;
+
+    // Fase 15 (Auditoria V3.1): não insere mais aqui — só coleta o candidato.
+    // A decisão de inserir (ou tratar como repetição esperada) é por
+    // multiconjunto, depois de conhecer TODAS as linhas válidas deste lote
+    // de uma vez (ver `resolverExcedenteMulticonjunto` após o loop).
+    candidatos.push({
+      numeroLinha: linha.numeroLinha,
+      dataIso,
+      descricaoBruta,
+      valorCentavos,
+      cartaoIdLinha,
+      parcelaAtual: Number.isNaN(parcelaAtual as number) ? null : parcelaAtual,
+      idDedup: calcularIdentificadorDeduplicacao({
+        data: dataIso,
+        valor: valorCentavos,
+        fornecedorOriginal: descricaoBruta,
+        cartaoId: cartaoIdLinha,
+      }),
+    });
+  }
+
+  // Fase 15 (Auditoria V3.1): dedup por multiconjunto — se já existem N
+  // lançamentos com uma chave, as N primeiras ocorrências dessa MESMA chave
+  // nesta importação são repetição esperada (reimportar fatura "atualizada"
+  // não duplica o que já existia); só o excedente é inserido. Duplicata
+  // legítima (duas compras iguais no mesmo dia) continua preservada, porque
+  // o multiconjunto permite repetição até o limite do que já existe.
+  const chavesCandidatos = candidatos.map((c) => c.idDedup);
+  const chavesUnicas = [...new Set(chavesCandidatos)];
+  const { data: existentesRaw } = await supabase
+    .from("lancamentos_brutos")
+    .select("id, identificador_deduplicacao")
+    .in("identificador_deduplicacao", chavesUnicas.length > 0 ? chavesUnicas : ["00000000-0000-0000-0000-000000000000"]);
+  const existentesPorChave = new Map<string, number>();
+  const primeiroExistentePorChave = new Map<string, string>();
+  for (const row of existentesRaw ?? []) {
+    const chave = row.identificador_deduplicacao as string;
+    existentesPorChave.set(chave, (existentesPorChave.get(chave) ?? 0) + 1);
+    if (!primeiroExistentePorChave.has(chave)) primeiroExistentePorChave.set(chave, row.id as string);
+  }
+  const deveInserir = resolverExcedenteMulticonjunto(chavesCandidatos, existentesPorChave);
+
+  for (let i = 0; i < candidatos.length; i++) {
+    const candidato = candidatos[i];
+
+    if (!deveInserir[i]) {
+      // Mesma chave já existente o número de vezes esperado — não é uma
+      // linha nova, não insere de novo (esse era exatamente o bug: reimportar
+      // uma fatura "atualizada" duplicava tudo que já estava lá).
+      linhasJaExistentes++;
+      continue;
+    }
 
     const { data: novoLancamento, error: lancamentoError } = await supabase
       .from("lancamentos_brutos")
       .insert({
         lote_importacao_id: lote.id,
-        cartao_id: cartaoIdLinha,
-        competencia_calculada: competencia,
-        data: dataIso,
-        fornecedor_original: descricaoBruta,
-        descricao_original: descricaoBruta,
-        valor: valorCentavos,
-        parcela_atual: Number.isNaN(parcelaAtual) ? null : parcelaAtual,
+        cartao_id: candidato.cartaoIdLinha,
+        competencia_calculada: competenciaFatura,
+        data: candidato.dataIso,
+        fornecedor_original: candidato.descricaoBruta,
+        descricao_original: candidato.descricaoBruta,
+        valor: candidato.valorCentavos,
+        parcela_atual: candidato.parcelaAtual,
         moeda: "BRL",
         arquivo_origem_id: documento.id,
-        pagina_ou_posicao: String(linha.numeroLinha),
-        identificador_deduplicacao: idDedup,
+        pagina_ou_posicao: String(candidato.numeroLinha),
+        identificador_deduplicacao: candidato.idDedup,
       })
       .select()
       .single();
@@ -440,27 +529,31 @@ export async function processarImportacao(formData: FormData): Promise<Processar
       await supabase.from("eventos_importacao").insert({
         lote_id: lote.id,
         tipo: "erro",
-        detalhe: `Linha ${linha.numeroLinha}: falha ao gravar lançamento.`,
+        detalhe: `Linha ${candidato.numeroLinha}: falha ao gravar lançamento.`,
       });
       continue;
     }
 
-    if (possivelDuplicata) {
+    // Excedente ALÉM do histórico conhecido pra essa chave — só isso é
+    // ambiguidade real (o multiconjunto já resolveu a repetição esperada
+    // acima); sinaliza pra revisão humana em vez de assumir automaticamente.
+    const existenteAnterior = primeiroExistentePorChave.get(candidato.idDedup);
+    if (existenteAnterior) {
       duplicatasSinalizadas++;
       await supabase.from("possiveis_duplicatas").insert({
-        lancamento_a_id: possivelDuplicata.id,
+        lancamento_a_id: existenteAnterior,
         lancamento_b_id: novoLancamento.id,
-        motivo: "Mesma data, valor e fornecedor de um lançamento já existente para este cartão.",
+        motivo: "Mesma data, valor e fornecedor de lançamento(s) já existente(s) além do esperado — verificar se é uma nova compra ou reprocessamento indevido.",
       });
       await supabase.from("eventos_importacao").insert({
         lote_id: lote.id,
         tipo: "duplicidade",
-        detalhe: `Linha ${linha.numeroLinha}: possível duplicata sinalizada para revisão.`,
+        detalhe: `Linha ${candidato.numeroLinha}: excedente além do histórico conhecido — sinalizado para revisão.`,
       });
     }
 
     linhasValidas++;
-    totalExtraido += valorCentavos;
+    totalExtraido += candidato.valorCentavos;
   }
 
   // Alerta por coluna (Fase 2, Insight de Produto 2026-07-16) — distinto de
@@ -550,6 +643,7 @@ export async function processarImportacao(formData: FormData): Promise<Processar
     linhasValidas,
     linhasInvalidas,
     pagamentosIgnorados,
+    linhasJaExistentes,
     duplicatasSinalizadas,
     totalExtraido,
     colunasNaoReconhecidas,

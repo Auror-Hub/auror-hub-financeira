@@ -100,7 +100,14 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
         formData.set("cartaoId", cartaoId);
         formData.set("aba", overrides.aba ?? aba);
         formData.set("linhasParaPular", String(overrides.linhasParaPular ?? linhasParaPular));
-        if (delimitador) formData.set("delimitador", delimitador);
+        // Fase 15 (Auditoria V3.1) — achado real ao testar: `delimitador` começa
+        // como "," (useState) antes do usuário ver qualquer coisa. Enviar esse
+        // valor default já na PRIMEIRA análise sobrescrevia a autodetecção do
+        // servidor (que só entra em ação quando o campo vem vazio) — um CSV
+        // simples com ";" nunca era detectado. Só reenvia o delimitador nas
+        // reanálises DEPOIS da primeira (troca de aba/linhas a pular), quando
+        // já reflete o que foi detectado ou o perfil salvo do cartão.
+        if (etapa !== "selecionar" && delimitador) formData.set("delimitador", delimitador);
         const resultadoAnalise = await analisarArquivo(formData);
         setAnalise(resultadoAnalise);
         setAba(resultadoAnalise.abaSelecionada);
@@ -511,6 +518,11 @@ export function EnviarDocumentoScreen({ cartoes }: { cartoes: CartaoOpcao[] }) {
             {resultado.pagamentosIgnorados > 0 && (
               <Badge tone="slate">
                 {resultado.pagamentosIgnorados} pagamento(s) de fatura ignorado(s) (não são gasto)
+              </Badge>
+            )}
+            {resultado.linhasJaExistentes > 0 && (
+              <Badge tone="slate">
+                {resultado.linhasJaExistentes} linha(s) já existente(s) — não reinserida(s)
               </Badge>
             )}
             {resultado.duplicatasSinalizadas > 0 && (

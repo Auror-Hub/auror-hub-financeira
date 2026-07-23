@@ -2,6 +2,7 @@ import { Settings } from "lucide-react";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { SignOutButton } from "@/components/domain/auth/SignOutButton";
 import { AdicionarCartaoForm } from "@/components/domain/cartoes/AdicionarCartaoForm";
+import { CartaoItem } from "@/components/domain/cartoes/CartaoItem";
 import { FamiliaSection } from "@/components/domain/familia/FamiliaSection";
 import { PerfilFinanceiroSection } from "@/components/domain/familia/PerfilFinanceiroSection";
 import { CestaBasicaSection } from "@/components/domain/precos-externos/CestaBasicaSection";
@@ -13,7 +14,7 @@ export default async function ConfiguracoesPage() {
   const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
   const { data: cartoes } = await supabase
     .from("cartoes")
-    .select("id, instituicao, apelido, tipo, ultimos_4_digitos, ativo")
+    .select("id, instituicao, apelido, tipo, ultimos_4_digitos, ativo, dia_fechamento, dia_vencimento")
     .eq("perfil_id", perfilId);
   const [familia, cestaBasica] = await Promise.all([carregarFamilia(), carregarCestaBasicaRecente()]);
 
@@ -28,13 +29,7 @@ export default async function ConfiguracoesPage() {
         <CardHeader title="Cartões e contas" count={cartoes?.length ?? 0} />
         <ul className="flex flex-col divide-y divide-border-subtle">
           {(cartoes ?? []).map((c) => (
-            <li key={c.id} className="flex items-center justify-between py-2">
-              <span className="text-base text-text-primary">{c.apelido || c.instituicao}</span>
-              <span className="text-sm text-text-muted">
-                {c.tipo === "conta" ? "Conta" : "Cartão"} · {c.instituicao}
-                {c.ultimos_4_digitos ? ` · •••• ${c.ultimos_4_digitos}` : ""}
-              </span>
-            </li>
+            <CartaoItem key={c.id} cartao={c} />
           ))}
           {(cartoes ?? []).length === 0 && <li className="py-2 text-base text-text-muted">Nenhum cartão ou conta cadastrada ainda.</li>}
         </ul>
