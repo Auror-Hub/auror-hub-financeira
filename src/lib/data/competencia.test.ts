@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularCompetencia, diasDecorridosNoMes, diasRestantesNoMes, mesesAnteriores, proximoMes } from "./competencia";
+import { calcularCompetencia, calcularEstadoCiclo, diasDecorridosNoMes, diasRestantesNoMes, mesesAnteriores, proximoMes } from "./competencia";
 
 describe("calcularCompetencia", () => {
   it("extrai o mês (AAAA-MM) de uma data ISO completa", () => {
@@ -54,6 +54,21 @@ describe("mesesAnteriores", () => {
     expect(mesesAnteriores("2026-07", 1)).toEqual(["2026-06"]);
     expect(mesesAnteriores("2026-07", 12)).toHaveLength(12);
     expect(mesesAnteriores("2026-07", 12)[11]).toBe("2025-07");
+  });
+});
+
+describe("calcularEstadoCiclo", () => {
+  it("com pendências, é 'em revisão' independente de estar em andamento", () => {
+    expect(calcularEstadoCiclo(3, true)).toBe("em revisão");
+    expect(calcularEstadoCiclo(3, false)).toBe("em revisão");
+  });
+
+  it("sem pendências e em andamento (mês atual), é 'atualizada' — nunca 'pronta'", () => {
+    expect(calcularEstadoCiclo(0, true)).toBe("atualizada");
+  });
+
+  it("sem pendências e não em andamento (mês passado), é 'pronta'", () => {
+    expect(calcularEstadoCiclo(0, false)).toBe("pronta");
   });
 });
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
+import { calcularEstadoCiclo } from "@/lib/data/competencia";
 import type { Competencia, EstadoCompetencia } from "@/lib/domain/types";
 import type { CompetenciaDetalhe, DocumentoOrigemResumo, VersaoFechamento } from "@/lib/domain/competency";
 
@@ -67,11 +68,13 @@ export async function carregarCompetencias(): Promise<CompetenciaDetalhe[]> {
   if (errC) throw new Error("Falha ao carregar competências: " + errC.message);
   const competenciasRows = competenciasRaw ?? [];
 
+  const mesAtualIso = new Date().toISOString().slice(0, 7);
   for (const c of competenciasRows) {
     const estadoAtual = c.estado as EstadoCompetencia;
     if (estadoAtual === "fechada" || estadoAtual === "reaberta") continue;
-    const pendentes = porMes.get(c.mes_referencia as string)?.pendentes ?? 0;
-    const novoEstado: EstadoCompetencia = pendentes > 0 ? "em revisão" : "pronta";
+    const mes = c.mes_referencia as string;
+    const pendentes = porMes.get(mes)?.pendentes ?? 0;
+    const novoEstado: EstadoCompetencia = calcularEstadoCiclo(pendentes, mes === mesAtualIso);
     if (estadoAtual !== novoEstado) {
       await supabase.from("competencias").update({ estado: novoEstado }).eq("id", c.id as string);
       c.estado = novoEstado;

@@ -47,9 +47,13 @@ export function CompetencyDetailScreen({
   const [fechamentoConcluido, setFechamentoConcluido] = useState(false);
 
   const podeReabrir = detalhe.competencia.estado === "fechada";
+  // Fase 16 (Auditoria V3.1): "atualizada" (mês em curso sem pendências) tem
+  // que continuar fechável, senão perde uma capacidade que já existia quando
+  // esse mesmo caso ainda se chamava "pronta".
   const podeFechar =
     detalhe.competencia.estado === "em revisão" ||
     detalhe.competencia.estado === "pronta" ||
+    detalhe.competencia.estado === "atualizada" ||
     detalhe.competencia.estado === "reaberta";
 
   function confirmarFechamento() {

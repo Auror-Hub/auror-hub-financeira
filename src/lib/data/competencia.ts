@@ -51,3 +51,16 @@ export function proximoMes(mesReferencia: string): string {
   const data = new Date(ano, mes, 1);
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
 }
+
+/**
+ * Fase 16 (Auditoria V3.1): ciclo temporal (mês em curso ou não) é diferente
+ * de situação de revisão (tem pendência ou não) — um mês ainda em curso, sem
+ * nenhuma pendência porque poucos gastos chegaram até agora, não é a mesma
+ * coisa que um mês passado genuinamente completo. Só se aplica a competências
+ * que ainda não foram fechadas/reabertas (essas duas só mudam por ação
+ * explícita, nunca por este cálculo).
+ */
+export function calcularEstadoCiclo(pendentes: number, emAndamento: boolean): "em revisão" | "pronta" | "atualizada" {
+  if (pendentes > 0) return "em revisão";
+  return emAndamento ? "atualizada" : "pronta";
+}
