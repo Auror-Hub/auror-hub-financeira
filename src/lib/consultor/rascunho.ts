@@ -2,8 +2,12 @@ import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
 import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 import { carregarMetas } from "@/lib/metas/consulta";
+import { carregarLancamentosComCategoria } from "@/lib/lancamentos/porCategoria";
+import { agregarPorChave } from "@/lib/lancamentos/agregador";
+import { mesesAnteriores } from "@/lib/data/competencia";
 import { formatBRL, formatData } from "@/lib/format";
 import type { IntencaoEstruturada } from "./interpretar";
+import type { NaturezaPlano } from "@/lib/plano/validacao";
 
 /**
  * Rearquitetura (Fase 4, ADR-007): Consultor com ferramentas — as 4
@@ -72,6 +76,18 @@ export type RascunhoAcao =
         novaSubcategoriaRotulo: string | null;
         novoObjetivoId: string;
         novoObjetivoRotulo: string;
+      };
+    }
+  | {
+      tipo: "criar_plano";
+      resumo: string;
+      params: {
+        mesReferencia: string;
+        linhas: { categoriaId: string | null; categoriaRotulo: string; valorPlanejadoReais: number; natureza: NaturezaPlano }[];
+        totalReais: number;
+        rendaReais: number | null;
+        viavel: boolean;
+        excedenteReais: number | null;
       };
     };
 
@@ -245,18 +261,112 @@ async function prepararCorrecao(supabase: SupabaseServer, perfilId: string, inte
   };
 }
 
+/**
+ * Fase 17 (Auditoria V3.1): "construir meu plano" — em vez de um wizard
+ * multi-turno (renda → categorias → confirma), monta UM rascunho já
+ * completo (mesma disciplina das outras 3 mutações): baseline pela média
+ * líquida dos últimos 3 meses por categoria (reaproveita `porCategoria.ts`/
+ * `agregarPorChave`, Fase 14), natureza padrão "ajustável" (o usuário
+ * reclassifica depois em Meu Plano se quiser), e checagem de viabilidade
+ * 100% por código contra a renda (informada este mês, ou a do perfil como
+ * fallback — nunca opinião da IA). Nunca sobrescreve um plano que já tem
+ * linhas — silenciosamente substituir um plano existente seria exatamente
+ * o tipo de mutação sem controle que este Consultor evita.
+ */
+async function prepararConstruirPlano(supabase: SupabaseServer, perfilId: string, intencao: IntencaoEstruturada): Promise<RascunhoAcao | null> {
+  const mesReferencia = intencao.mesReferencia ?? new Date().toISOString().slice(0, 7);
+
+  const { data: planoExistente } = await supabase
+    .from("planos_mensais")
+    .select("id, renda_informada")
+    .eq("perfil_id", perfilId)
+    .eq("mes_referencia", mesReferencia)
+    .maybeSingle();
+  if (planoExistente) {
+    const { count } = await supabase
+      .from("plano_linhas")
+      .select("id", { count: "exact", head: true })
+      .eq("plano_mensal_id", planoExistente.id);
+    if ((count ?? 0) > 0) return null; // já existe plano — nunca substitui silenciosamente
+  }
+
+  const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id").eq("perfil_id", perfilId);
+  const cartaoIds = (cartoesDoPerfil ?? []).map((c) => c.id as string);
+  const inativos = await carregarIdsInativos(supabase, perfilId);
+  const meses = mesesAnteriores(mesReferencia, 3);
+  const historico = cartaoIds.length > 0 ? await carregarLancamentosComCategoria(supabase, cartaoIds, meses, inativos) : [];
+  if (historico.length === 0) return null;
+
+  const liquidoPorCategoria = agregarPorChave(historico, (l) => l.categoriaId);
+  const idsCategorias = [...liquidoPorCategoria.keys()];
+  const { data: termosRaw } = await supabase
+    .from("taxonomia_termos")
+    .select("id, rotulo")
+    .in("id", idsCategorias.length > 0 ? idsCategorias : ["00000000-0000-0000-0000-000000000000"]);
+  const rotuloPorId = new Map((termosRaw ?? []).map((t) => [t.id as string, t.rotulo as string]));
+
+  const linhas = [...liquidoPorCategoria.entries()]
+    .map(([categoriaId, agregado]) => ({
+      categoriaId,
+      categoriaRotulo: rotuloPorId.get(categoriaId) ?? "—",
+      valorPlanejadoCentavos: Math.round(agregado.gastoLiquido / 3),
+      natureza: "ajustavel" as NaturezaPlano,
+    }))
+    .filter((l) => l.valorPlanejadoCentavos > 0) // média negativa (mais crédito que despesa) não faz sentido como linha de plano
+    .sort((a, b) => b.valorPlanejadoCentavos - a.valorPlanejadoCentavos);
+  if (linhas.length === 0) return null;
+
+  const totalCentavos = linhas.reduce((soma, l) => soma + l.valorPlanejadoCentavos, 0);
+
+  let rendaCentavos = (planoExistente?.renda_informada as number | null | undefined) ?? null;
+  if (rendaCentavos === null) {
+    const { data: familiaRow } = await supabase.from("familias").select("renda_liquida_mensal").eq("id", perfilId).maybeSingle();
+    rendaCentavos = (familiaRow?.renda_liquida_mensal as number | null | undefined) ?? null;
+  }
+  const viavel = rendaCentavos === null || totalCentavos <= rendaCentavos;
+  const excedenteReais = !viavel ? (totalCentavos - rendaCentavos!) / 100 : null;
+
+  const resumoLinhas = linhas.map((l) => `${l.categoriaRotulo} ${formatBRL(l.valorPlanejadoCentavos)}`).join(", ");
+  const resumoViabilidade =
+    rendaCentavos === null
+      ? " (sem renda cadastrada para checar viabilidade — informe em Configurações ou no plano)"
+      : viavel
+        ? " — dentro da renda informada"
+        : ` — R$ ${excedenteReais!.toFixed(2).replace(".", ",")} acima da renda informada`;
+
+  return {
+    tipo: "criar_plano",
+    resumo: `Plano de ${mesReferencia} com base na média líquida dos últimos 3 meses: ${resumoLinhas}. Total ${formatBRL(totalCentavos)}${resumoViabilidade}.`,
+    params: {
+      mesReferencia,
+      linhas: linhas.map((l) => ({
+        categoriaId: l.categoriaId,
+        categoriaRotulo: l.categoriaRotulo,
+        valorPlanejadoReais: l.valorPlanejadoCentavos / 100,
+        natureza: l.natureza,
+      })),
+      totalReais: totalCentavos / 100,
+      rendaReais: rendaCentavos !== null ? rendaCentavos / 100 : null,
+      viavel,
+      excedenteReais,
+    },
+  };
+}
+
 export async function prepararRascunho(intencao: IntencaoEstruturada): Promise<RascunhoAcao | null> {
   const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
 
   switch (intencao.intencao) {
     case "criar_rascunho_meta":
       return prepararCriarMeta(supabase, intencao);
-    case "criar_rascunho_ajuste_plano":
+    case "criar_rascunho_ajuste_meta":
       return prepararAjustarMeta(intencao);
     case "criar_lancamento_provisorio":
       return prepararProvisorio(supabase, intencao);
     case "criar_rascunho_correcao_classificacao":
       return prepararCorrecao(supabase, perfilId, intencao);
+    case "construir_plano":
+      return prepararConstruirPlano(supabase, perfilId, intencao);
     default:
       return null;
   }

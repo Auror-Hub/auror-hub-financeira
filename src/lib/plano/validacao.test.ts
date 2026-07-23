@@ -47,4 +47,26 @@ describe("validarLinhasPlano", () => {
     expect(validarLinhasPlano([{ categoriaId: "cat-1", valorPlanejado: 0, natureza: "comprometido" }])).not.toBeNull();
     expect(validarLinhasPlano([{ categoriaId: "cat-1", valorPlanejado: -100, natureza: "comprometido" }])).not.toBeNull();
   });
+
+  it("aceita categoria + subcategoria junto com a mesma categoria sem subcategoria (alocação dentro da categoria)", () => {
+    expect(
+      validarLinhasPlano([
+        { categoriaId: "cat-1", subcategoriaId: "sub-1", valorPlanejado: 40000, natureza: "ajustavel" },
+        { categoriaId: "cat-1", subcategoriaId: "sub-2", valorPlanejado: 90000, natureza: "ajustavel" },
+      ]),
+    ).toBeNull();
+  });
+
+  it("rejeita subcategoria sem categoria", () => {
+    const erro = validarLinhasPlano([{ categoriaId: null, subcategoriaId: "sub-1", valorPlanejado: 1000, natureza: "ajustavel" }]);
+    expect(erro).not.toBeNull();
+  });
+
+  it("rejeita duas linhas para o mesmo par categoria+subcategoria", () => {
+    const erro = validarLinhasPlano([
+      { categoriaId: "cat-1", subcategoriaId: "sub-1", valorPlanejado: 1000, natureza: "ajustavel" },
+      { categoriaId: "cat-1", subcategoriaId: "sub-1", valorPlanejado: 500, natureza: "ajustavel" },
+    ]);
+    expect(erro).not.toBeNull();
+  });
 });

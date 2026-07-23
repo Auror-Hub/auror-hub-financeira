@@ -34,7 +34,7 @@ export function identificarCampoFaltante(intencao: IntencaoEstruturada): CampoFa
       }
       return null;
     }
-    case "criar_rascunho_ajuste_plano":
+    case "criar_rascunho_ajuste_meta":
       if (!intencao.valorLimiteReais || intencao.valorLimiteReais <= 0) {
         return { campo: "valorLimiteReais", pergunta: "Qual o novo valor do limite, em reais?" };
       }

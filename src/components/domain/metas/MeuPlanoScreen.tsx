@@ -86,6 +86,7 @@ export function MeuPlanoScreen({
         mesReferencia={mesReferencia}
         plano={plano}
         categorias={categorias}
+        subcategoriasPorCategoria={subcategoriasPorCategoria}
         mesAnterior={mesAnterior}
         planoAnteriorDisponivel={planoAnteriorDisponivel}
       />

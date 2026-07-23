@@ -8,9 +8,10 @@ export type IntencaoConsultor =
   | "resumo_insights_competencia"
   | "resumo_relatorio"
   | "criar_rascunho_meta"
-  | "criar_rascunho_ajuste_plano"
+  | "criar_rascunho_ajuste_meta"
   | "criar_lancamento_provisorio"
   | "criar_rascunho_correcao_classificacao"
+  | "construir_plano"
   | "fora_de_escopo";
 
 export interface IntencaoEstruturada {
@@ -58,12 +59,13 @@ const FERRAMENTA_INTERPRETACAO = {
           "resumo_insights_competencia",
           "resumo_relatorio",
           "criar_rascunho_meta",
-          "criar_rascunho_ajuste_plano",
+          "criar_rascunho_ajuste_meta",
           "criar_lancamento_provisorio",
           "criar_rascunho_correcao_classificacao",
+          "construir_plano",
           "fora_de_escopo",
         ],
-        description: "Qual das 9 intenções suportadas melhor descreve a mensagem.",
+        description: "Qual das 10 intenções suportadas melhor descreve a mensagem.",
       },
       categoriaRotulo: { type: "string" as const, description: "Rótulo exato de uma categoria, se mencionada." },
       dataInicio: { type: "string" as const, description: "AAAA-MM-DD — início do período, para total_categoria_periodo/maiores_despesas." },
@@ -72,7 +74,7 @@ const FERRAMENTA_INTERPRETACAO = {
       periodoAFim: { type: "string" as const, description: "AAAA-MM-DD — fim do primeiro período." },
       periodoBInicio: { type: "string" as const, description: "AAAA-MM-DD — início do segundo período." },
       periodoBFim: { type: "string" as const, description: "AAAA-MM-DD — fim do segundo período." },
-      mesReferencia: { type: "string" as const, description: "AAAA-MM — competência mencionada, para resumo_insights_competencia/resumo_relatorio." },
+      mesReferencia: { type: "string" as const, description: "AAAA-MM — competência mencionada, para resumo_insights_competencia/resumo_relatorio/construir_plano (padrão: mês corrente)." },
       limite: { type: "number" as const, description: "Quantidade pedida, para maiores_despesas (padrão 5)." },
       motivoForaDeEscopo: { type: "string" as const, description: "Só quando intencao=fora_de_escopo — explicação curta de por quê." },
       subcategoriaRotulo: { type: "string" as const, description: "Rótulo exato de subcategoria, para criar_rascunho_meta (opcional)." },
@@ -82,7 +84,7 @@ const FERRAMENTA_INTERPRETACAO = {
         enum: ["limite_absoluto", "reducao_percentual"],
         description: "Tipo da meta pra criar_rascunho_meta — valor fixo ou redução % sobre histórico.",
       },
-      valorLimiteReais: { type: "number" as const, description: "Valor em reais do limite, para criar_rascunho_meta (tipo limite_absoluto) ou criar_rascunho_ajuste_plano." },
+      valorLimiteReais: { type: "number" as const, description: "Valor em reais do limite, para criar_rascunho_meta (tipo limite_absoluto) ou criar_rascunho_ajuste_meta." },
       percentualAlvo: { type: "number" as const, description: "Percentual de redução alvo (1-99), para criar_rascunho_meta (tipo reducao_percentual)." },
       periodoMeses: { type: "number" as const, enum: [1, 3, 6, 12], description: "Período de comparação em meses, para criar_rascunho_meta (tipo reducao_percentual)." },
       descricaoUsuario: { type: "string" as const, description: "Descrição do gasto, para criar_lancamento_provisorio." },
@@ -134,7 +136,7 @@ Data de hoje: ${hoje}.
 ${blocoContextoPendente}
 Categorias disponíveis (use o rótulo exato, nunca invente uma nova): ${categoriasDisponiveis.join(", ")}
 
-Só existem 9 intenções suportadas — escolha "fora_de_escopo" para qualquer coisa que não encaixe exatamente:
+Só existem 10 intenções suportadas — escolha "fora_de_escopo" para qualquer coisa que não encaixe exatamente:
 
 Leitura (nunca mudam nada):
 1. total_categoria_periodo — quanto foi gasto numa categoria num intervalo de datas.
@@ -145,9 +147,10 @@ Leitura (nunca mudam nada):
 
 Mutação (SEMPRE produzem um rascunho pra confirmação — nunca executam nada sozinhas):
 6. criar_rascunho_meta — pedido pra criar uma meta/orçamento nova (ex.: "cria uma meta de R$500 em Lazer", "quero reduzir 10% em Transporte vs os últimos 3 meses").
-7. criar_rascunho_ajuste_plano — pedido pra mudar o VALOR de uma meta que já existe (ex.: "aumenta o limite de Alimentação pra R$800").
+7. criar_rascunho_ajuste_meta — pedido pra mudar o VALOR de uma meta que já existe (ex.: "aumenta o limite de Alimentação pra R$800"). Isto ajusta uma META (ENT-GOAL), nunca o Plano do mês.
 8. criar_lancamento_provisorio — pedido pra anotar um gasto que ainda não apareceu no extrato/fatura (ex.: "anota que gastei R$50 no almoço hoje").
 9. criar_rascunho_correcao_classificacao — pedido pra corrigir a categoria de um lançamento específico (ex.: "o gasto no Posto Ipiranga de ontem é Transporte, não Alimentação").
+10. construir_plano — pedido pra montar/organizar o Plano do mês com base no histórico de gastos (ex.: "monta meu plano do mês", "quero organizar meu orçamento com base no que já gastei"). Isto cria o PLANO (ENT-PLAN), nunca uma meta.
 
 Regras obrigatórias:
 - Se a pergunta pedir quebra de gasto por pessoa, membro da família ou "objetivo" (ex.: "quanto uma pessoa específica gastou", "gasto de um membro específico", "por pessoa") → SEMPRE intencao="fora_de_escopo", motivoForaDeEscopo curto explicando que o Consultor não decompõe gasto por pessoa em consulta livre.

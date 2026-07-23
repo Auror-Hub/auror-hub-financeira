@@ -35,7 +35,7 @@ export default async function MeuPlanoPage() {
   const mesAnterior = mesReferencia ? mesesAnteriores(mesReferencia, 1)[0] : "";
   const plano = mesReferencia
     ? await carregarPlanoMensal(mesReferencia)
-    : { id: null, mesReferencia: "", rendaInformada: null, linhas: [], total: 0, naoAlocado: null };
+    : { id: null, mesReferencia: "", rendaInformada: null, rendaEfetiva: null, rendaOrigem: null, linhas: [], total: 0, naoAlocado: null };
   // Só vale a pena checar o plano do mês anterior quando o mês atual ainda não tem plano — é a condição do nudge.
   const planoAnterior = plano.id === null && mesAnterior ? await carregarPlanoMensal(mesAnterior) : null;
   const planoAnteriorDisponivel = Boolean(planoAnterior && planoAnterior.linhas.length > 0);

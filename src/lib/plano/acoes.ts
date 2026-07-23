@@ -37,12 +37,13 @@ function lerLinhasDoFormData(formData: FormData): LinhaPlanoInput[] {
   }
   if (!Array.isArray(parsed)) throw new Error("Formato inválido nas linhas do plano.");
   return parsed.map((item) => {
-    const linha = item as { categoriaId?: string | null; valorPlanejado?: number; natureza?: string };
+    const linha = item as { categoriaId?: string | null; subcategoriaId?: string | null; valorPlanejado?: number; natureza?: string };
     if (!NATUREZAS_VALIDAS.includes(linha.natureza as NaturezaPlano)) {
       throw new Error(`Natureza inválida: ${linha.natureza}`);
     }
     return {
       categoriaId: linha.categoriaId ?? null,
+      subcategoriaId: linha.subcategoriaId ?? null,
       valorPlanejado: Math.round(Number(linha.valorPlanejado)),
       natureza: linha.natureza as NaturezaPlano,
     };
@@ -72,6 +73,7 @@ export async function criarOuAtualizarPlano(mesReferencia: string, formData: For
       linhas.map((l) => ({
         plano_mensal_id: planoId,
         categoria_id: l.categoriaId,
+        subcategoria_id: l.subcategoriaId ?? null,
         valor_planejado: l.valorPlanejado,
         natureza: l.natureza,
       })),
@@ -116,7 +118,7 @@ export async function copiarPlanoDoMesAnterior(mesReferencia: string, mesAnterio
 
   const { data: linhasAnteriores, error: errLinhas } = await supabase
     .from("plano_linhas")
-    .select("categoria_id, valor_planejado, natureza")
+    .select("categoria_id, subcategoria_id, valor_planejado, natureza")
     .eq("plano_mensal_id", planoAnterior.id);
   if (errLinhas) throw new Error("Falha ao carregar linhas do plano anterior: " + errLinhas.message);
 
@@ -127,6 +129,7 @@ export async function copiarPlanoDoMesAnterior(mesReferencia: string, mesAnterio
       (linhasAnteriores ?? []).map((l) => ({
         plano_mensal_id: planoId,
         categoria_id: l.categoria_id,
+        subcategoria_id: l.subcategoria_id,
         valor_planejado: l.valor_planejado,
         natureza: l.natureza,
       })),

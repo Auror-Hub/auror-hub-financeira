@@ -21,41 +21,60 @@ const NATUREZA_OPCOES: { valor: NaturezaPlano; rotulo: string }[] = [
 
 interface LinhaEdicao {
   categoriaId: string;
+  subcategoriaId: string;
   valorReais: string;
   natureza: NaturezaPlano;
 }
 
 function linhaVazia(): LinhaEdicao {
-  return { categoriaId: "", valorReais: "", natureza: "ajustavel" };
+  return { categoriaId: "", subcategoriaId: "", valorReais: "", natureza: "ajustavel" };
 }
 
 export interface PlanoMensalSectionProps {
   mesReferencia: string;
   plano: PlanoMensal;
   categorias: { id: string; rotulo: string }[];
+  subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   mesAnterior: string;
   planoAnteriorDisponivel: boolean;
 }
 
 /**
  * Fase 8 (Auditoria V2): "Plano do mês" — orçamento aditivo por construção
- * (nunca duas linhas pra mesma categoria). Fonte real do "Planejado" que
- * volta a aparecer na Home/Meu Plano nesta fase — nunca soma de `metas`
- * (ver MetaListScreen, agora rotulado como acompanhamento paralelo).
+ * (nunca duas linhas pro mesmo par categoria+subcategoria). Fase 17
+ * (Auditoria V3.1): subcategoria é uma alocação DENTRO da categoria — o
+ * total da categoria soma todas as suas linhas, nunca conta em dobro.
  */
-export function PlanoMensalSection({ mesReferencia, plano, categorias, mesAnterior, planoAnteriorDisponivel }: PlanoMensalSectionProps) {
+export function PlanoMensalSection({
+  mesReferencia,
+  plano,
+  categorias,
+  subcategoriasPorCategoria,
+  mesAnterior,
+  planoAnteriorDisponivel,
+}: PlanoMensalSectionProps) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<LinhaEdicao[]>(
     plano.linhas.length > 0
-      ? plano.linhas.map((l) => ({ categoriaId: l.categoriaId ?? "", valorReais: (l.valorPlanejado / 100).toFixed(2), natureza: l.natureza }))
+      ? plano.linhas.map((l) => ({
+          categoriaId: l.categoriaId ?? "",
+          subcategoriaId: l.subcategoriaId ?? "",
+          valorReais: (l.valorPlanejado / 100).toFixed(2),
+          natureza: l.natureza,
+        }))
       : [linhaVazia()],
   );
   const [renda, setRenda] = useState(plano.rendaInformada !== null ? (plano.rendaInformada / 100).toFixed(2) : "");
 
   function atualizarLinha(indice: number, patch: Partial<LinhaEdicao>) {
     setLinhas((prev) => prev.map((l, i) => (i === indice ? { ...l, ...patch } : l)));
+  }
+
+  function trocarCategoria(indice: number, categoriaId: string) {
+    // Subcategoria pertence à categoria escolhida — trocar a categoria sem resetar deixaria uma combinação inválida.
+    atualizarLinha(indice, { categoriaId, subcategoriaId: "" });
   }
 
   function adicionarLinha() {
@@ -69,14 +88,18 @@ export function PlanoMensalSection({ mesReferencia, plano, categorias, mesAnteri
   function salvarPlano() {
     setErro(null);
     const linhasValidas = linhas.filter((l) => l.valorReais.trim() !== "");
-    const categoriasVistas = new Set<string>();
+    const chavesVistas = new Set<string>();
     for (const l of linhasValidas) {
-      const chave = l.categoriaId || "__geral__";
-      if (categoriasVistas.has(chave)) {
-        setErro("Cada categoria só pode ter uma linha no plano — combine os valores numa linha só.");
+      if (!l.categoriaId && l.subcategoriaId) {
+        setErro("Uma alocação por subcategoria precisa de uma categoria selecionada.");
         return;
       }
-      categoriasVistas.add(chave);
+      const chave = `${l.categoriaId || "__geral__"}|${l.subcategoriaId || "__geral__"}`;
+      if (chavesVistas.has(chave)) {
+        setErro("Cada categoria (ou par categoria+subcategoria) só pode ter uma linha no plano — combine os valores numa linha só.");
+        return;
+      }
+      chavesVistas.add(chave);
       if (Number(l.valorReais) <= 0) {
         setErro("O valor planejado de cada linha precisa ser maior que zero.");
         return;
@@ -85,6 +108,7 @@ export function PlanoMensalSection({ mesReferencia, plano, categorias, mesAnteri
 
     const payload = linhasValidas.map((l) => ({
       categoriaId: l.categoriaId || null,
+      subcategoriaId: l.subcategoriaId || null,
       valorPlanejado: Math.round(Number(l.valorReais) * 100),
       natureza: l.natureza,
     }));
@@ -125,10 +149,19 @@ export function PlanoMensalSection({ mesReferencia, plano, categorias, mesAnteri
     });
   }
 
-  const categoriasDisponiveisPara = (indiceAtual: number) => {
-    const usadas = new Set(linhas.filter((_, i) => i !== indiceAtual).map((l) => l.categoriaId).filter(Boolean));
-    return categorias.filter((c) => !usadas.has(c.id));
-  };
+  // Resumo por categoria — só aparece quando uma categoria tem mais de uma
+  // linha (categoria + subcategorias), pra deixar visível que a soma
+  // reconcilia (nunca dobra) sem poluir o caso comum de 1 linha por categoria.
+  const subtotalPorCategoria = new Map<string, { rotulo: string; total: number; contagem: number }>();
+  for (const l of linhas) {
+    if (!l.categoriaId || l.valorReais.trim() === "" || Number.isNaN(Number(l.valorReais))) continue;
+    const rotulo = categorias.find((c) => c.id === l.categoriaId)?.rotulo ?? "—";
+    const atual = subtotalPorCategoria.get(l.categoriaId) ?? { rotulo, total: 0, contagem: 0 };
+    atual.total += Math.round(Number(l.valorReais) * 100);
+    atual.contagem += 1;
+    subtotalPorCategoria.set(l.categoriaId, atual);
+  }
+  const resumosComMultiplasLinhas = [...subtotalPorCategoria.values()].filter((r) => r.contagem > 1);
 
   return (
     <div className="flex flex-col gap-3">
@@ -137,8 +170,9 @@ export function PlanoMensalSection({ mesReferencia, plano, categorias, mesAnteri
         <h2 className="text-lg font-semibold text-text-primary">Plano do mês</h2>
       </div>
       <p className="text-sm text-text-muted">
-        Orçamento por categoria — cada categoria entra uma vez só, então o total planejado nunca conta o mesmo gasto duas vezes
-        (diferente das metas abaixo, que podem se sobrepor por design).
+        Orçamento por categoria — cada par categoria+subcategoria entra uma vez só, então o total planejado nunca conta o mesmo gasto duas
+        vezes (diferente das metas abaixo, que podem se sobrepor por design). Uma subcategoria é uma alocação dentro da categoria — o total
+        da categoria soma todas as suas linhas.
       </p>
 
       {plano.id === null && planoAnteriorDisponivel && (
@@ -163,13 +197,29 @@ export function PlanoMensalSection({ mesReferencia, plano, categorias, mesAnteri
                 Categoria
                 <select
                   value={linha.categoriaId}
-                  onChange={(e) => atualizarLinha(indice, { categoriaId: e.target.value })}
+                  onChange={(e) => trocarCategoria(indice, e.target.value)}
                   className="h-[34px] w-48 rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
                 >
-                  <option value="">Outras / geral</option>
-                  {categoriasDisponiveisPara(indice).map((c) => (
+                  <option value="">Reserva não distribuída</option>
+                  {categorias.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.rotulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                Subcategoria (opcional)
+                <select
+                  value={linha.subcategoriaId}
+                  onChange={(e) => atualizarLinha(indice, { subcategoriaId: e.target.value })}
+                  disabled={!linha.categoriaId}
+                  className="h-[34px] w-44 rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary disabled:opacity-50"
+                >
+                  <option value="">Categoria toda</option>
+                  {(subcategoriasPorCategoria[linha.categoriaId] ?? []).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.rotulo}
                     </option>
                   ))}
                 </select>
@@ -210,6 +260,18 @@ export function PlanoMensalSection({ mesReferencia, plano, categorias, mesAnteri
             </div>
           ))}
         </div>
+
+        {resumosComMultiplasLinhas.length > 0 && (
+          <div className="mt-3 flex flex-col gap-1 rounded-card bg-surface-secondary p-2.5 text-sm text-text-secondary">
+            <span className="eyebrow">Total por categoria (soma das alocações)</span>
+            {resumosComMultiplasLinhas.map((r) => (
+              <span key={r.rotulo}>
+                {r.rotulo}: <span className="font-mono-nums text-text-primary">{formatBRL(r.total)}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="mt-3 flex items-center justify-between">
           <Button variant="ghost" size="sm" icon={<Plus size={14} strokeWidth={1.75} />} onClick={adicionarLinha}>
             Adicionar categoria
@@ -228,6 +290,9 @@ export function PlanoMensalSection({ mesReferencia, plano, categorias, mesAnteri
         <Button variant="secondary" size="sm" disabled={pendente} onClick={salvarRenda}>
           Salvar renda
         </Button>
+        {plano.rendaOrigem === "perfil" && (
+          <span className="text-sm text-text-muted">Usando a renda líquida cadastrada no Perfil Financeiro (Configurações).</span>
+        )}
         {plano.naoAlocado !== null && (
           <span className="text-sm text-text-muted">
             Não alocado: <span className="font-mono-nums text-text-primary">{formatBRL(plano.naoAlocado)}</span>

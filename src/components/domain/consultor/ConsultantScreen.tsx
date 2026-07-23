@@ -43,6 +43,7 @@ const ROTULO_TIPO_RASCUNHO: Record<RascunhoAcao["tipo"], string> = {
   ajustar_meta: "Ajuste de meta",
   criar_provisorio: "Lançamento provisório",
   corrigir_classificacao: "Correção de classificação",
+  criar_plano: "Plano do mês",
 };
 
 /**

@@ -32,13 +32,13 @@ describe("identificarCampoFaltante", () => {
     expect(resultado).toBeNull();
   });
 
-  it("criar_rascunho_ajuste_plano sem valor -> pede valorLimiteReais", () => {
-    const resultado = identificarCampoFaltante(intencao({ intencao: "criar_rascunho_ajuste_plano", categoriaRotulo: "Alimentação" }));
+  it("criar_rascunho_ajuste_meta sem valor -> pede valorLimiteReais", () => {
+    const resultado = identificarCampoFaltante(intencao({ intencao: "criar_rascunho_ajuste_meta", categoriaRotulo: "Alimentação" }));
     expect(resultado?.campo).toBe("valorLimiteReais");
   });
 
-  it("criar_rascunho_ajuste_plano com valor -> null", () => {
-    const resultado = identificarCampoFaltante(intencao({ intencao: "criar_rascunho_ajuste_plano", valorLimiteReais: 800 }));
+  it("criar_rascunho_ajuste_meta com valor -> null", () => {
+    const resultado = identificarCampoFaltante(intencao({ intencao: "criar_rascunho_ajuste_meta", valorLimiteReais: 800 }));
     expect(resultado).toBeNull();
   });
 

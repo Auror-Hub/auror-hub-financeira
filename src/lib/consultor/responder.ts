@@ -25,10 +25,12 @@ export interface RespostaConsultor {
 const MOTIVO_SEM_RASCUNHO: Partial<Record<IntencaoConsultor, string>> = {
   criar_rascunho_meta:
     "Não consegui montar essa meta com segurança — confira se a categoria/subcategoria/objetivo mencionados existem e se o valor ou percentual informado é válido.",
-  criar_rascunho_ajuste_plano: "Não encontrei uma meta de valor fixo ativa correspondente pra ajustar — confira em Meu plano.",
+  criar_rascunho_ajuste_meta: "Não encontrei uma meta de valor fixo ativa correspondente pra ajustar — confira em Meu plano.",
   criar_lancamento_provisorio: "Não consegui montar esse lançamento provisório — confira se descrição, valor e data foram informados.",
   criar_rascunho_correcao_classificacao:
     "Não encontrei um único lançamento correspondente, ou faltou informar o objetivo pra um lançamento que ainda não tem decisão — tente descrever o fornecedor e a data com mais precisão.",
+  construir_plano:
+    "Não consegui sugerir um plano — já existe um plano com categorias para este mês (edite direto em Meu Plano), ou não há histórico de gastos suficiente nos últimos meses para sugerir uma base.",
 };
 
 /** Sem chamada à IA — o conteúdo do rascunho já é 100% determinístico (rascunho.ts); gerar texto livre aqui só arriscaria inventar detalhes numa mutação financeira. */

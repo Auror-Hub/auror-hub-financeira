@@ -10,8 +10,15 @@ import { carregarConversaPorId, type ConversaAtual } from "./consulta";
 import { criarMeta, editarMeta } from "@/lib/metas/acoes";
 import { criarProvisorio } from "@/lib/provisorios/acoes";
 import { corrigirClassificacao } from "@/lib/classificacao/decisoes";
+import { criarOuAtualizarPlano } from "@/lib/plano/acoes";
 
-const INTENCOES_MUTACAO = ["criar_rascunho_meta", "criar_rascunho_ajuste_plano", "criar_lancamento_provisorio", "criar_rascunho_correcao_classificacao"] as const;
+const INTENCOES_MUTACAO = [
+  "criar_rascunho_meta",
+  "criar_rascunho_ajuste_meta",
+  "criar_lancamento_provisorio",
+  "criar_rascunho_correcao_classificacao",
+  "construir_plano",
+] as const;
 
 /** Fase 11 (Auditoria V2): quantas rodadas de pergunta-resposta o Consultor tenta antes de desistir de completar uma mutação incompleta (mesmo espírito de outros limiares do projeto — heurística de primeiro corte). */
 const MAX_TENTATIVAS_INTENCAO_PENDENTE = 3;
@@ -248,6 +255,21 @@ export async function confirmarRascunhoConsultor(mensagemId: string, rascunho: R
         subcategoriaId: rascunho.params.novaSubcategoriaId ?? undefined,
         objetivoId: rascunho.params.novoObjetivoId,
       });
+      break;
+    }
+    case "criar_plano": {
+      const formData = new FormData();
+      formData.set(
+        "linhas",
+        JSON.stringify(
+          rascunho.params.linhas.map((l) => ({
+            categoriaId: l.categoriaId,
+            valorPlanejado: Math.round(l.valorPlanejadoReais * 100),
+            natureza: l.natureza,
+          })),
+        ),
+      );
+      await criarOuAtualizarPlano(rascunho.params.mesReferencia, formData);
       break;
     }
   }

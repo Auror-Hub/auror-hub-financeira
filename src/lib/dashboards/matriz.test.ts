@@ -37,6 +37,8 @@ function planoCom(linhas: PlanoMensal["linhas"]): PlanoMensal {
     id: "plano-1",
     mesReferencia: "2026-07",
     rendaInformada: null,
+    rendaEfetiva: null,
+    rendaOrigem: null,
     linhas,
     total: linhas.reduce((s, l) => s + l.valorPlanejado, 0),
     naoAlocado: null,
@@ -58,7 +60,7 @@ describe("montarMatrizControle", () => {
   it("categoria dentro do plano (abaixo de 80% do planejado) fica com situação dentro", () => {
     const painel = painelCom([categoria({ categoriaId: "cat-1", rotulo: "Mercado", total: 30000 })]);
     const plano = planoCom([
-      { id: "l1", categoriaId: "cat-1", categoriaRotulo: "Mercado", valorPlanejado: 100000, natureza: "ajustavel" },
+      { id: "l1", categoriaId: "cat-1", categoriaRotulo: "Mercado", subcategoriaId: null, subcategoriaRotulo: null, valorPlanejado: 100000, natureza: "ajustavel" },
     ]);
 
     const [linha] = montarMatrizControle(painel, plano);
@@ -71,7 +73,7 @@ describe("montarMatrizControle", () => {
   it("categoria que excedeu o planejado fica com situação excedido e desvio positivo", () => {
     const painel = painelCom([categoria({ categoriaId: "cat-1", rotulo: "Restaurante", total: 150000 })]);
     const plano = planoCom([
-      { id: "l1", categoriaId: "cat-1", categoriaRotulo: "Restaurante", valorPlanejado: 100000, natureza: "ajustavel" },
+      { id: "l1", categoriaId: "cat-1", categoriaRotulo: "Restaurante", subcategoriaId: null, subcategoriaRotulo: null, valorPlanejado: 100000, natureza: "ajustavel" },
     ]);
 
     const [linha] = montarMatrizControle(painel, plano);
@@ -84,7 +86,7 @@ describe("montarMatrizControle", () => {
   it("categoria entre 80% e 100% do planejado fica em atenção", () => {
     const painel = painelCom([categoria({ categoriaId: "cat-1", rotulo: "Transporte", total: 85000 })]);
     const plano = planoCom([
-      { id: "l1", categoriaId: "cat-1", categoriaRotulo: "Transporte", valorPlanejado: 100000, natureza: "comprometido" },
+      { id: "l1", categoriaId: "cat-1", categoriaRotulo: "Transporte", subcategoriaId: null, subcategoriaRotulo: null, valorPlanejado: 100000, natureza: "comprometido" },
     ]);
 
     const [linha] = montarMatrizControle(painel, plano);
@@ -95,7 +97,7 @@ describe("montarMatrizControle", () => {
   it("linha de plano sem gasto realizado entra como situação dentro, realizado zero", () => {
     const painel = painelCom([]);
     const plano = planoCom([
-      { id: "l1", categoriaId: "cat-2", categoriaRotulo: "Viagem", valorPlanejado: 200000, natureza: "reserva" },
+      { id: "l1", categoriaId: "cat-2", categoriaRotulo: "Viagem", subcategoriaId: null, subcategoriaRotulo: null, valorPlanejado: 200000, natureza: "reserva" },
     ]);
 
     const [linha] = montarMatrizControle(painel, plano);
@@ -107,7 +109,9 @@ describe("montarMatrizControle", () => {
 
   it("linha 'geral' do plano (categoriaId null) não entra na matriz", () => {
     const painel = painelCom([]);
-    const plano = planoCom([{ id: "l1", categoriaId: null, categoriaRotulo: "Outras / geral", valorPlanejado: 300000, natureza: "reserva" }]);
+    const plano = planoCom([
+      { id: "l1", categoriaId: null, categoriaRotulo: "Reserva não distribuída", subcategoriaId: null, subcategoriaRotulo: null, valorPlanejado: 300000, natureza: "reserva" },
+    ]);
 
     expect(montarMatrizControle(painel, plano)).toHaveLength(0);
   });
