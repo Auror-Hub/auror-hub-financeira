@@ -116,6 +116,60 @@ describe("priorizarSinais", () => {
     expect(sinais.map((s) => s.categoriaId)).not.toContain("cat-1");
   });
 
+  it("Fase 18 (Auditoria V3.1): entre duas categorias de impacto comparável, a mais ajustável (maior desvio %) vence a comprometida (menor desvio %) — 'onde uma redução pesa mais' não é só sobre o tamanho do gasto", () => {
+    const comprometidoImpactoParecido = linha({
+      categoriaId: "cat-fixo",
+      categoriaRotulo: "Assinaturas",
+      planejado: 200000,
+      realizado: 240000,
+      desvioReais: 40000, // R$400
+      desvioPercentual: 0.2, // +20%
+      natureza: "comprometido",
+      situacao: "excedido",
+    });
+    const ajustavelImpactoParecido = linha({
+      categoriaId: "cat-flex",
+      categoriaRotulo: "Lazer",
+      planejado: 60000,
+      realizado: 96000,
+      desvioReais: 36000, // R$360 — impacto em R$ um pouco menor
+      desvioPercentual: 0.6, // +60% — desvio % bem maior
+      natureza: "ajustavel",
+      situacao: "excedido",
+    });
+
+    const sinais = priorizarSinais([comprometidoImpactoParecido, ajustavelImpactoParecido]);
+
+    expect(sinais[0].categoriaId).toBe("cat-flex");
+  });
+
+  it("Fase 18 (Auditoria V3.1): gasto comprometido de impacto muito maior ainda pode liderar — só o protegido é excluído por completo, comprometido segue competindo por mérito", () => {
+    const comprometidoAltoImpacto = linha({
+      categoriaId: "cat-fixo",
+      categoriaRotulo: "Financiamento",
+      planejado: 200000,
+      realizado: 400000,
+      desvioReais: 200000, // R$2.000
+      desvioPercentual: 1,
+      natureza: "comprometido",
+      situacao: "excedido",
+    });
+    const ajustavelBaixoImpacto = linha({
+      categoriaId: "cat-flex",
+      categoriaRotulo: "Lazer",
+      planejado: 60000,
+      realizado: 75000,
+      desvioReais: 15000, // R$150
+      desvioPercentual: 0.25,
+      natureza: "ajustavel",
+      situacao: "excedido",
+    });
+
+    const sinais = priorizarSinais([comprometidoAltoImpacto, ajustavelBaixoImpacto]);
+
+    expect(sinais[0].categoriaId).toBe("cat-fixo");
+  });
+
   it("recorrência em meses anteriores aumenta a prioridade do sinal", () => {
     const base = linha({
       categoriaId: "cat-1",

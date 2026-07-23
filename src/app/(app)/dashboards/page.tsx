@@ -4,7 +4,7 @@ import { montarMatrizControle } from "@/lib/dashboards/matriz";
 import { priorizarSinais } from "@/lib/dashboards/sinais";
 import { carregarPlanoMensal } from "@/lib/plano/consulta";
 import { calcularProjecao } from "@/lib/metas/projecao";
-import { diasDecorridosNoMes, mesesAnteriores } from "@/lib/data/competencia";
+import { calcularCompetencia, diasDecorridosNoMes, mesesAnteriores } from "@/lib/data/competencia";
 import { carregarCompetencias, carregarUltimaAtualizacaoCompetencia } from "@/lib/competencias/consulta";
 import { DashboardScreen, type PresetPeriodo } from "@/components/domain/dashboards/DashboardScreen";
 
@@ -94,10 +94,12 @@ export default async function DashboardsPage({ searchParams }: { searchParams: P
   }
 
   // Fase 9 (Auditoria V2): "Painel do mês" é sempre ancorado a UM mês — o mais
-  // recente dentro do período selecionado (ou o mês corrente, quando o período
-  // é "Personalizado" por datas) — independente do range multi-mês que
-  // Composição/Evolução podem estar mostrando.
-  const mesFoco = periodo.tipo === "competencias" ? periodo.meses[0] : mesAtualIso();
+  // recente dentro do período selecionado. Fase 18 (Auditoria V3.1): quando o
+  // período é "Personalizado" por datas, isso precisa ser o ÚLTIMO mês DENTRO
+  // do intervalo escolhido — nunca o mês corrente fixo (bug confirmado: abrir
+  // "Personalizado" num mês passado mostrava o Pulso/Matriz do mês atual,
+  // ignorando o intervalo escolhido).
+  const mesFoco = periodo.tipo === "competencias" ? periodo.meses[0] : calcularCompetencia(periodo.dataFim);
   const [mesAnt1, mesAnt2] = mesesAnteriores(mesFoco, 2);
 
   async function carregarMatrizDoMes(mes: string) {

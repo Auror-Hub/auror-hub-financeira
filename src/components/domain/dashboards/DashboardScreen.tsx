@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -98,10 +98,28 @@ export function DashboardScreen({
   coberturaRevisao,
 }: DashboardScreenProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [dataInicio, setDataInicio] = useState(filtrosAtuais.dataInicio);
   const [dataFim, setDataFim] = useState(filtrosAtuais.dataFim);
   const [mes, setMes] = useState(filtrosAtuais.mes ?? filtrosAtuais.dataInicio.slice(0, 7));
-  const [aba, setAba] = useState<AbaExplorar>("painel");
+  // Fase 18 (Auditoria V3.1): aba persiste na URL pra sobreviver a reload/link
+  // compartilhado — mas troca de aba nunca precisa recarregar dado do servidor
+  // (painel/matriz/sinais não dependem de aba), então isso é só
+  // `history.replaceState` (sem `router.push`), nunca um refetch.
+  const [aba, setAbaEstado] = useState<AbaExplorar>(() => {
+    const daUrl = searchParams.get("aba");
+    return ABAS.some((a) => a.chave === daUrl) ? (daUrl as AbaExplorar) : "painel";
+  });
+
+  function selecionarAba(nova: AbaExplorar) {
+    setAbaEstado(nova);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (nova === "painel") params.delete("aba");
+    else params.set("aba", nova);
+    const query = params.toString();
+    window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+  }
 
   function navegar(patch: Partial<{ preset: PresetPeriodo; dataInicio: string; dataFim: string; mes: string; objetivoId: string }>) {
     const preset = patch.preset ?? filtrosAtuais.preset;
@@ -229,7 +247,7 @@ export function DashboardScreen({
           <button
             key={a.chave}
             type="button"
-            onClick={() => setAba(a.chave)}
+            onClick={() => selecionarAba(a.chave)}
             className={`px-3 py-2 text-base font-medium ${
               aba === a.chave
                 ? "border-b-2 border-action-primary text-text-primary"
@@ -349,6 +367,9 @@ function PainelDoMesTab({
             value={variacaoVsAnterior !== null ? formatVariacaoPercentual(variacaoVsAnterior) : "—"}
             tone={variacaoVsAnterior !== null ? (variacaoVsAnterior > 0 ? "warning" : "success") : undefined}
           />
+          {painelMesFoco.creditos > 0 && (
+            <KpiTile label="Créditos/estornos" value={formatBRL(painelMesFoco.creditos)} tone="success" />
+          )}
           {projecao && (
             <KpiTile
               label="Projeção fim do mês"
@@ -378,12 +399,24 @@ function PainelDoMesTab({
 }
 
 function MatrizControleTable({ matriz, mesFoco }: { matriz: LinhaMatriz[]; mesFoco: string }) {
+  const [mostrarTodas, setMostrarTodas] = useState(false);
+
   if (matriz.length === 0) {
     return <p className="text-base text-text-muted">Sem categorias no plano nem gasto decidido neste mês.</p>;
   }
 
+  // Fase 18 (Auditoria V3.1): primeiro as categorias acionáveis (fora do
+  // plano), maior desvio primeiro — o resto só aparece em "ver todas", pra
+  // não afogar o que precisa de decisão numa lista de tudo que está "dentro".
+  const acionaveis = [...matriz]
+    .filter((l) => l.situacao === "atencao" || l.situacao === "excedido")
+    .sort((a, b) => Math.abs(b.desvioReais ?? 0) - Math.abs(a.desvioReais ?? 0));
+  const linhas = mostrarTodas || acionaveis.length === 0 ? matriz : acionaveis.slice(0, 3);
+  const temMaisPraMostrar = !mostrarTodas && acionaveis.length > 0 && linhas.length < matriz.length;
+
   return (
-    <div className="overflow-x-auto">
+    <div className="flex flex-col gap-2">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border-subtle text-left text-text-muted">
@@ -397,7 +430,7 @@ function MatrizControleTable({ matriz, mesFoco }: { matriz: LinhaMatriz[]; mesFo
           </tr>
         </thead>
         <tbody className="divide-y divide-border-subtle">
-          {matriz.map((l) => (
+          {linhas.map((l) => (
             <tr key={l.categoriaId}>
               <td className="py-2 pr-2">
                 <Link href={`/historico?categoriaId=${l.categoriaId}&competenciaMes=${mesFoco}`} className="text-text-primary hover:underline">
@@ -428,6 +461,17 @@ function MatrizControleTable({ matriz, mesFoco }: { matriz: LinhaMatriz[]; mesFo
           ))}
         </tbody>
       </table>
+      </div>
+      {temMaisPraMostrar && (
+        <Button variant="ghost" size="sm" onClick={() => setMostrarTodas(true)}>
+          Ver todas ({matriz.length})
+        </Button>
+      )}
+      {mostrarTodas && acionaveis.length > 0 && acionaveis.length < matriz.length && (
+        <Button variant="ghost" size="sm" onClick={() => setMostrarTodas(false)}>
+          Ver só as acionáveis
+        </Button>
+      )}
     </div>
   );
 }
@@ -554,7 +598,7 @@ function DrilldownCategorias({ categorias }: { categorias: CategoriaBreakdown[] 
       </p>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="h-64 w-full lg:w-1/2">
+        <div className="h-80 w-full lg:w-3/5">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -563,7 +607,7 @@ function DrilldownCategorias({ categorias }: { categorias: CategoriaBreakdown[] 
                 nameKey="nome"
                 cx="50%"
                 cy="50%"
-                outerRadius={90}
+                outerRadius={130}
                 onClick={(e: { payload?: { categoria?: CategoriaBreakdown | null } }) => {
                   const cat = e?.payload?.categoria;
                   if (cat) setPopup(cat);
@@ -582,7 +626,7 @@ function DrilldownCategorias({ categorias }: { categorias: CategoriaBreakdown[] 
           </ResponsiveContainer>
         </div>
 
-        <ul className="flex w-full flex-col gap-1.5 lg:w-1/2">
+        <ul className="flex w-full flex-col gap-1.5 lg:w-2/5">
           {categorias.map((cat, i) => (
             <CategoriaBar
               key={cat.categoriaId}
