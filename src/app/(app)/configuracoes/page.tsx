@@ -7,7 +7,7 @@ import { FamiliaSection } from "@/components/domain/familia/FamiliaSection";
 import { PerfilFinanceiroSection } from "@/components/domain/familia/PerfilFinanceiroSection";
 import { CestaBasicaSection } from "@/components/domain/precos-externos/CestaBasicaSection";
 import { carregarFamilia } from "@/lib/familia/consulta";
-import { carregarCestaBasicaRecente } from "@/lib/precos-externos/consulta";
+import { carregarCestaBasicaDaFamilia } from "@/lib/precos-externos/consulta";
 import { Card, CardHeader } from "@/components/ui/Card";
 
 export default async function ConfiguracoesPage() {
@@ -16,7 +16,7 @@ export default async function ConfiguracoesPage() {
     .from("cartoes")
     .select("id, instituicao, apelido, tipo, ultimos_4_digitos, ativo, dia_fechamento, dia_vencimento")
     .eq("perfil_id", perfilId);
-  const [familia, cestaBasica] = await Promise.all([carregarFamilia(), carregarCestaBasicaRecente()]);
+  const [familia, cestaBasica] = await Promise.all([carregarFamilia(), carregarCestaBasicaDaFamilia()]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -41,7 +41,7 @@ export default async function ConfiguracoesPage() {
 
       <PerfilFinanceiroSection perfilFinanceiro={familia.perfilFinanceiro} souAdmin={familia.souAdmin} />
 
-      <CestaBasicaSection registros={cestaBasica} />
+      <CestaBasicaSection cestaBasica={cestaBasica} />
 
       <div>
         <SignOutButton />

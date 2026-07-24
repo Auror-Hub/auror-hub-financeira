@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { resolverCapitalReferencia } from "@/lib/familia/localizacao";
 
 function gerarCodigoConvite(): string {
   return Math.random().toString(36).slice(2, 10).toUpperCase();
@@ -181,7 +182,51 @@ export async function atualizarPerfilFinanceiro(formData: FormData): Promise<voi
     .eq("id", perfilId);
   if (error) throw new Error("Falha ao atualizar perfil financeiro: " + error.message);
 
+  await recalcularLocalizacaoReferencia(supabase, perfilId, cidade, estado);
+
   revalidatePath("/configuracoes");
+}
+
+/**
+ * Fase 20 (Auditoria V3.1): mantém `perfis_localizacao_referencia` em
+ * sincronia com `familias.cidade/estado` — nunca editado direto pelo
+ * usuário, sempre derivado. Sem cidade+estado (perfil ainda incompleto ou
+ * limpo), não há como resolver uma referência — a linha é removida em vez
+ * de apontar pra um valor obsoleto.
+ */
+async function recalcularLocalizacaoReferencia(
+  supabase: Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"],
+  perfilId: string,
+  cidade: string | null,
+  estado: string | null,
+): Promise<void> {
+  if (!cidade || !estado) {
+    await supabase.from("perfis_localizacao_referencia").delete().eq("perfil_id", perfilId);
+    return;
+  }
+
+  const { data: capitaisRaw, error: errCapitais } = await supabase.from("capitais_referencia").select("uf, capital");
+  if (errCapitais) throw new Error("Falha ao carregar capitais de referência: " + errCapitais.message);
+  const capitais = (capitaisRaw ?? []).map((c) => ({ uf: c.uf as string, capital: c.capital as string }));
+
+  const correspondencia = resolverCapitalReferencia(cidade, estado, capitais);
+  if (!correspondencia) {
+    await supabase.from("perfis_localizacao_referencia").delete().eq("perfil_id", perfilId);
+    return;
+  }
+
+  const { error: errUpsert } = await supabase.from("perfis_localizacao_referencia").upsert(
+    {
+      perfil_id: perfilId,
+      cidade_perfil: cidade,
+      uf: estado.trim().toUpperCase(),
+      capital_referencia: correspondencia.capitalReferencia,
+      regra_correspondencia: correspondencia.regraCorrespondencia,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "perfil_id" },
+  );
+  if (errUpsert) throw new Error("Falha ao atualizar localização de referência: " + errUpsert.message);
 }
 
 async function verificarSouAdmin(supabase: Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"], perfilId: string): Promise<boolean> {
