@@ -3,14 +3,15 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CircleAlert, Plus, Workflow } from "lucide-react";
-import type { RegraResumo } from "@/lib/regras/consulta";
-import { criarRegraManual, aprovarRegra, recusarRegra, desativarRegra } from "@/lib/regras/acoes";
+import type { RegraResumo, AmostraRegra } from "@/lib/regras/consulta";
+import { criarRegraManual, aprovarRegra, recusarRegra, desativarRegra, buscarAmostraDaRegra } from "@/lib/regras/acoes";
 import { formatData } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import { RuleDetailDrawer } from "./RuleDetailDrawer";
 
 const STATUS_TONE: Record<RegraResumo["status"], BadgeTone> = {
   ativa: "green",
@@ -22,15 +23,31 @@ const STATUS_TONE: Record<RegraResumo["status"], BadgeTone> = {
 export interface RuleListScreenProps {
   regras: RegraResumo[];
   categorias: { id: string; rotulo: string }[];
+  subcategoriasPorCategoria: Record<string, { id: string; rotulo: string }[]>;
   objetivos: { id: string; rotulo: string }[];
 }
 
 /** SCR-RULES-001 — lista de regras (condição→consequência), com aprovação de propostas e alerta de conflito (RUL-13). */
-export function RuleListScreen({ regras, categorias, objetivos }: RuleListScreenProps) {
+export function RuleListScreen({ regras, categorias, subcategoriasPorCategoria, objetivos }: RuleListScreenProps) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
+  const [categoriaFormulario, setCategoriaFormulario] = useState("");
+  const [regraDetalheId, setRegraDetalheId] = useState<string | null>(null);
+  const [amostra, setAmostra] = useState<AmostraRegra | null>(null);
+  const [carregandoAmostra, setCarregandoAmostra] = useState(false);
+
+  function abrirDetalhe(id: string) {
+    setRegraDetalheId(id);
+    setAmostra(null);
+    setCarregandoAmostra(true);
+    startTransition(async () => {
+      const resultado = await buscarAmostraDaRegra(id);
+      setAmostra(resultado);
+      setCarregandoAmostra(false);
+    });
+  }
 
   function executarAcao(acao: () => Promise<void>) {
     setErro(null);
@@ -87,20 +104,21 @@ export function RuleListScreen({ regras, categorias, objetivos }: RuleListScreen
         {regras.map((r) => (
           <Card key={r.id} className={r.status === "conflitante" ? "border border-terra/40" : undefined}>
             <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-col gap-1">
+              <button type="button" onClick={() => abrirDetalhe(r.id)} className="flex flex-1 flex-col items-start gap-1 text-left">
                 <span className="text-base text-text-primary">
                   Se fornecedor contém <span className="font-medium">&ldquo;{r.fornecedorTexto}&rdquo;</span>
                 </span>
                 <span className="text-sm text-text-secondary">
                   → sugerir {r.categoriaRotulo}
+                  {r.subcategoriaRotulo ? ` › ${r.subcategoriaRotulo}` : ""}
                   {r.objetivoRotulo ? ` · ${r.objetivoRotulo}` : ""} ({Math.round(r.confianca * 100)}% confiança)
                 </span>
                 <span className="text-sm text-text-muted">
                   {r.origem === "aprendida" ? "Aprendida pelo Agente de Aprendizagem" : "Criada manualmente"} · {r.quantidadeExecucoes}{" "}
                   execuç{r.quantidadeExecucoes === 1 ? "ão" : "ões"}
-                  {r.ultimaUtilizacao ? ` · última em ${formatData(r.ultimaUtilizacao.slice(0, 10))}` : ""}
+                  {r.ultimaUtilizacao ? ` · última em ${formatData(r.ultimaUtilizacao.slice(0, 10))}` : ""} · ver amostra
                 </span>
-              </div>
+              </button>
               <div className="flex flex-col items-end gap-2">
                 <Badge tone={STATUS_TONE[r.status]}>{r.status}</Badge>
                 <div className="flex gap-1.5">
@@ -133,7 +151,10 @@ export function RuleListScreen({ regras, categorias, objetivos }: RuleListScreen
 
       <Modal
         open={modalAberto}
-        onClose={() => setModalAberto(false)}
+        onClose={() => {
+          setModalAberto(false);
+          setCategoriaFormulario("");
+        }}
         title="Nova regra"
         footer={
           <div className="flex justify-end gap-2">
@@ -156,12 +177,29 @@ export function RuleListScreen({ regras, categorias, objetivos }: RuleListScreen
             <select
               name="categoriaId"
               required
+              value={categoriaFormulario}
+              onChange={(e) => setCategoriaFormulario(e.target.value)}
               className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary"
             >
               <option value="">Selecionar</option>
               {categorias.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            Subcategoria (opcional)
+            <select
+              name="subcategoriaId"
+              disabled={!categoriaFormulario}
+              className="h-[34px] rounded-input border border-border-default bg-surface-primary px-2 text-base text-text-primary disabled:opacity-50"
+            >
+              <option value="">Categoria toda</option>
+              {(subcategoriasPorCategoria[categoriaFormulario] ?? []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.rotulo}
                 </option>
               ))}
             </select>
@@ -186,6 +224,17 @@ export function RuleListScreen({ regras, categorias, objetivos }: RuleListScreen
           </label>
         </form>
       </Modal>
+
+      <RuleDetailDrawer
+        regra={regras.find((r) => r.id === regraDetalheId) ?? null}
+        amostra={amostra}
+        carregandoAmostra={carregandoAmostra}
+        onClose={() => setRegraDetalheId(null)}
+        onAprovar={(id) => executarAcao(() => aprovarRegra(id))}
+        onRecusar={(id) => executarAcao(() => recusarRegra(id))}
+        onDesativar={(id) => executarAcao(() => desativarRegra(id))}
+        pendente={pendente}
+      />
     </div>
   );
 }

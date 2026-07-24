@@ -1,10 +1,12 @@
 import "server-only";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarIdsInativos } from "@/lib/lancamentos/inativos";
 
 export interface RegraResumo {
   id: string;
   fornecedorTexto: string;
   categoriaRotulo: string;
+  subcategoriaRotulo: string | null;
   objetivoRotulo: string | null;
   confianca: number;
   origem: "manual" | "aprendida";
@@ -56,6 +58,7 @@ export async function carregarRegras(): Promise<RegraResumo[]> {
   const idsTermos = new Set<string>();
   for (const p of consequenciaPorRegra.values()) {
     if (p.categoriaId) idsTermos.add(p.categoriaId);
+    if (p.subcategoriaId) idsTermos.add(p.subcategoriaId);
     if (p.objetivoId) idsTermos.add(p.objetivoId);
   }
   const { data: termosRaw, error: errTermos } = await supabase
@@ -71,6 +74,7 @@ export async function carregarRegras(): Promise<RegraResumo[]> {
       id: r.id as string,
       fornecedorTexto: condicaoPorRegra.get(r.id as string) ?? "",
       categoriaRotulo: (parametros?.categoriaId && rotuloPorTermo.get(parametros.categoriaId)) ?? "—",
+      subcategoriaRotulo: (parametros?.subcategoriaId && rotuloPorTermo.get(parametros.subcategoriaId)) ?? null,
       objetivoRotulo: (parametros?.objetivoId && rotuloPorTermo.get(parametros.objetivoId)) ?? null,
       confianca: r.confianca as number,
       origem: r.origem as "manual" | "aprendida",
@@ -80,4 +84,58 @@ export async function carregarRegras(): Promise<RegraResumo[]> {
       criadoEm: r.criado_em as string,
     };
   });
+}
+
+export interface AmostraRegraItem {
+  id: string;
+  data: string;
+  descricaoOriginal: string;
+  valorCentavos: number;
+}
+
+export interface AmostraRegra {
+  /** Total de lançamentos do acervo que casam a condição — pode ser maior que `itens` (amostra limitada). */
+  totalCasados: number;
+  itens: AmostraRegraItem[];
+}
+
+/** Fase 19 (Auditoria V3.1): amostra + impacto de uma regra — mesmo matcher de `regrasQueCasam`, sem gravar nada. */
+export async function carregarAmostraDaRegra(regraId: string, limite = 5): Promise<AmostraRegra> {
+  const { supabase, perfilId } = await perfilDoUsuarioAutenticado();
+
+  const { data: condicao, error: errCondicao } = await supabase
+    .from("regra_condicoes")
+    .select("valor_condicao")
+    .eq("regra_id", regraId)
+    .eq("tipo", "fornecedor_contem")
+    .maybeSingle();
+  if (errCondicao) throw new Error("Falha ao carregar condição da regra: " + errCondicao.message);
+  const texto = ((condicao?.valor_condicao as { texto?: string } | null)?.texto ?? "").trim();
+  if (!texto) return { totalCasados: 0, itens: [] };
+
+  const { data: cartoesDoPerfil } = await supabase.from("cartoes").select("id").eq("perfil_id", perfilId);
+  const cartaoIds = (cartoesDoPerfil ?? []).map((c) => c.id as string);
+  if (cartaoIds.length === 0) return { totalCasados: 0, itens: [] };
+
+  const idsInativos = await carregarIdsInativos(supabase, perfilId);
+
+  const { data: lancamentosRaw, error: errLanc } = await supabase
+    .from("lancamentos_brutos")
+    .select("id, data, descricao_original, valor")
+    .in("cartao_id", cartaoIds)
+    .ilike("descricao_original", `%${texto}%`)
+    .order("data", { ascending: false });
+  if (errLanc) throw new Error("Falha ao carregar amostra da regra: " + errLanc.message);
+
+  const casados = (lancamentosRaw ?? []).filter((l) => !idsInativos.has(l.id as string));
+
+  return {
+    totalCasados: casados.length,
+    itens: casados.slice(0, limite).map((l) => ({
+      id: l.id as string,
+      data: l.data as string,
+      descricaoOriginal: l.descricao_original as string,
+      valorCentavos: l.valor as number,
+    })),
+  };
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { perfilDoUsuarioAutenticado } from "@/lib/auth/perfil";
+import { carregarAmostraDaRegra as carregarAmostraDaRegraConsulta, type AmostraRegra } from "@/lib/regras/consulta";
 
 type Supabase = Awaited<ReturnType<typeof perfilDoUsuarioAutenticado>>["supabase"];
 
@@ -43,6 +44,7 @@ export async function criarRegraManual(formData: FormData): Promise<void> {
 
   const fornecedorTexto = String(formData.get("fornecedorTexto") ?? "").trim().toUpperCase();
   const categoriaId = String(formData.get("categoriaId") ?? "");
+  const subcategoriaId = String(formData.get("subcategoriaId") ?? "") || null;
   const objetivoId = String(formData.get("objetivoId") ?? "") || null;
   const confiancaRaw = Number(formData.get("confianca") ?? "0.8");
 
@@ -64,7 +66,7 @@ export async function criarRegraManual(formData: FormData): Promise<void> {
 
   const { error: errConsequencia } = await supabase
     .from("regra_consequencias")
-    .insert({ regra_id: novaRegra.id, tipo: "sugerir_classificacao", parametros: { categoriaId, objetivoId } });
+    .insert({ regra_id: novaRegra.id, tipo: "sugerir_classificacao", parametros: { categoriaId, subcategoriaId, objetivoId } });
   if (errConsequencia) throw new Error("Falha ao gravar consequência: " + errConsequencia.message);
 
   await verificarEAtualizarConflitos(supabase, perfilId, fornecedorTexto);
@@ -122,4 +124,9 @@ export async function desativarRegra(id: string): Promise<void> {
   if (errUpdate) throw new Error("Falha ao desativar regra: " + errUpdate.message);
 
   revalidatePath("/regras");
+}
+
+/** Wrapper "use server" — o Drawer de detalhe (client) chama isso direto para carregar amostra/impacto sob demanda. */
+export async function buscarAmostraDaRegra(regraId: string): Promise<AmostraRegra> {
+  return carregarAmostraDaRegraConsulta(regraId);
 }
